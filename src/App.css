@@ -1,0 +1,385 @@
+:root {
+  --bar: #101010;
+  --amber: #ffcc00;
+  --idle: #8e8e93;
+  --hairline: #262626;
+  --bezel: #f7f7f9;
+  --bezel-line: #d9d9de;
+  --cam-font: 'Helvetica Neue', 'HelveticaNeue', Helvetica, Arial, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: #000;
+  color: #fff;
+  font-family: var(--cam-font);
+}
+
+/* Neutralize the template's centered-page #root styling from index.css */
+#root {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  border: none;
+  text-align: left;
+  display: block;
+}
+
+.stage {
+  min-height: 100svh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 28px 0;
+}
+
+/* ---- iPhone bezel ---- */
+
+.phone {
+  width: min(430px, 100vw);
+  background: var(--bezel);
+  border: 1px solid var(--bezel-line);
+  border-radius: 56px;
+  padding: 0 12px;
+  display: flex;
+  flex-direction: column;
+}
+
+.phone-ear {
+  height: 68px;
+  position: relative;
+}
+
+.phone-speaker {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 56px;
+  height: 7px;
+  border-radius: 4px;
+  background: #d3d3d8;
+}
+
+.phone-camera {
+  position: absolute;
+  left: calc(50% - 58px);
+  top: 50%;
+  transform: translateY(-50%);
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #c4c4cb;
+}
+
+.phone-chin {
+  height: 88px;
+  position: relative;
+}
+
+.home-button {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  border: 2px solid #cfcfd5;
+  background: #fbfbfd;
+}
+
+/* ---- Screen ---- */
+
+.screen {
+  background: #000;
+  border: 1px solid #e3e3e7;
+  border-radius: 3px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ---- Top bar ---- */
+
+.top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--bar);
+  height: 44px;
+  padding: 0 8px;
+}
+
+.bar-toggle {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: none;
+  border: none;
+  color: var(--idle);
+  font-family: var(--cam-font);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 8px 10px;
+  cursor: pointer;
+}
+
+.bar-toggle.on {
+  color: var(--amber);
+}
+
+/* ---- Viewfinder ---- */
+
+.viewfinder {
+  position: relative;
+  width: 100%;
+  background: #000;
+}
+
+/* FaceTracker's video carries an inline border-radius; the camera screen is square */
+.viewfinder video {
+  border-radius: 0 !important;
+}
+
+.grid-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.grid-line {
+  position: absolute;
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.grid-line.v {
+  top: 0;
+  bottom: 0;
+  width: 1px;
+}
+
+.grid-line.v1 { left: 33.333%; }
+.grid-line.v2 { left: 66.666%; }
+
+.grid-line.h {
+  left: 0;
+  right: 0;
+  height: 1px;
+}
+
+.grid-line.h1 { top: 33.333%; }
+.grid-line.h2 { top: 66.666%; }
+
+.countdown {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 6.5rem;
+  font-weight: 200;
+  color: #fff;
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.6);
+  pointer-events: none;
+}
+
+.flash {
+  position: absolute;
+  inset: 0;
+  background: #fff;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s ease;
+}
+
+.flash.visible {
+  opacity: 1;
+  transition: none;
+}
+
+/* ---- Jewelry drawer (styled like the iOS mode wheel) ---- */
+
+.drawer {
+  flex: 1;
+  min-height: 118px;
+  display: flex;
+  flex-direction: column;
+  background: var(--bar);
+}
+
+.tabs {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding: 8px 10px 2px;
+  scrollbar-width: none;
+}
+
+.tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.tab {
+  position: relative;
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  color: #ececec;
+  font-family: var(--cam-font);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  padding: 8px 8px 14px;
+  cursor: pointer;
+}
+
+.tab.open {
+  color: var(--amber);
+}
+
+.worn-dot {
+  position: absolute;
+  bottom: 5px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--amber);
+}
+
+.tray {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 2px 10px 12px;
+  scrollbar-width: none;
+}
+
+.tray::-webkit-scrollbar {
+  display: none;
+}
+
+.tray-item {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  background: #000;
+  border: 1px solid var(--hairline);
+  border-radius: 3px;
+  padding: 8px 10px 6px;
+  color: var(--idle);
+  font-family: var(--cam-font);
+  cursor: pointer;
+}
+
+.tray-item.active {
+  border-color: var(--amber);
+  color: #fff;
+}
+
+.tray-item-label {
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.swatch {
+  width: 48px;
+  height: 48px;
+}
+
+/* ---- Bottom bar ---- */
+
+.bottom-bar {
+  display: grid;
+  grid-template-columns: 64px 1fr 64px;
+  align-items: center;
+  justify-items: center;
+  background: var(--bar);
+  padding: 12px 0 16px;
+}
+
+.thumb-slot {
+  width: 38px;
+  height: 38px;
+}
+
+.thumb {
+  display: block;
+  width: 38px;
+  height: 38px;
+  border-radius: 3px;
+  border: 1px solid #3a3a3e;
+  object-fit: cover;
+}
+
+.thumb-empty {
+  background: #1a1a1c;
+}
+
+.shutter {
+  width: 66px;
+  height: 66px;
+  border-radius: 50%;
+  border: 3px solid #fff;
+  background: transparent;
+  padding: 3px;
+  cursor: pointer;
+}
+
+.shutter-inner {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: #fff;
+  transition: background-color 0.15s ease, transform 0.1s ease;
+}
+
+.shutter:active .shutter-inner {
+  transform: scale(0.92);
+}
+
+.shutter-inner.counting {
+  background: var(--amber);
+}
+
+/* ---- Collapse the bezel on actual phones ---- */
+
+@media (max-width: 520px) {
+  .stage {
+    padding: 0;
+  }
+
+  .phone {
+    width: 100%;
+    background: #000;
+    border: none;
+    border-radius: 0;
+    padding: 0;
+  }
+
+  .phone-ear,
+  .phone-chin {
+    display: none;
+  }
+
+  .screen {
+    border: none;
+    border-radius: 0;
+    min-height: 100svh;
+  }
+}

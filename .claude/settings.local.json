@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(npm run lint)",
+      "PowerShell(npm run build)"
+    ]
+  }
+}
