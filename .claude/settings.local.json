@@ -2,7 +2,14 @@
   "permissions": {
     "allow": [
       "PowerShell(npm run lint)",
-      "PowerShell(npm run build)"
+      "PowerShell(npm run build)",
+      "Bash(npm run *)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:5199/)",
+      "Bash(curl -s http://localhost:5199/jewelry/septum-ring.png -o /dev/null -w \"jewelry asset: %{http_code}\\\\n\")",
+      "Read(//tmp/**)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" --max-time 2 http://localhost:5199/)",
+      "Bash(netstat -ano)",
+      "Bash(taskkill *)"
     ]
   }
 }

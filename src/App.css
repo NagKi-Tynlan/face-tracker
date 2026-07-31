@@ -383,3 +383,5 @@ body {
     min-height: 100svh;
   }
 }
+
+.swatch { width: 48px; height: 48px; object-fit: contain; }

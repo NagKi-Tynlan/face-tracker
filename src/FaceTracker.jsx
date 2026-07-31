@@ -1,271 +1,111 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 
-// Landmark indices confirmed via click-to-identify testing.
-// Each position supports multiple selectable jewelry STYLES (rendered placeholders,
-// not photos — chrome-style gradients + shadow, swap for real assets later).
+// Landmark indices confirmed via click-to-identify testing — never change these
+// or the offsetX/offsetY values without re-calibrating against the live camera.
 const PIERCING_POINTS = {
-  leftNostril: {
-    label: 'Left Nostril',
-    index: 220,
-    offsetX: 0,
-    offsetY: 0,
-    styles: [
-      { id: 'stud', label: 'Stud', shape: 'stud', size: 4 },
-      { id: 'hoop', label: 'Small Hoop', shape: 'ring', size: 5 },
-    ],
-  },
-  rightNostril: {
-    label: 'Right Nostril',
-    index: 437,
-    offsetX: 0,
-    offsetY: 15,
-    styles: [
-      { id: 'stud', label: 'Stud', shape: 'stud', size: 4 },
-      { id: 'hoop', label: 'Small Hoop', shape: 'ring', size: 5 },
-    ],
-  },
-  septum: {
-    label: 'Septum',
-    index: 274,
-    offsetX: 0,
-    offsetY: 0,
-    styles: [
-      { id: 'ring', label: 'Ring', shape: 'ring', size: 6 },
-      { id: 'horseshoe', label: 'Horseshoe', shape: 'horseshoe', size: 6 },
-      { id: 'hoop', label: 'Small Hoop', shape: 'ring', size: 4 },
-    ],
-  },
-  leftEyebrow: {
-    label: 'Left Eyebrow',
-    index: 276,
-    offsetX: 0,
-    offsetY: 0,
-    styles: [
-      { id: 'straight', label: 'Straight Barbell', shape: 'barbell', size: 8, curved: false },
-      { id: 'curved', label: 'Curved Barbell', shape: 'barbell', size: 8, curved: true },
-    ],
-  },
-  rightEyebrow: {
-    label: 'Right Eyebrow',
-    index: 46,
-    offsetX: 0,
-    offsetY: 0,
-    styles: [
-      { id: 'straight', label: 'Straight Barbell', shape: 'barbell', size: 8, curved: false },
-      { id: 'curved', label: 'Curved Barbell', shape: 'barbell', size: 8, curved: true },
-    ],
-  },
-  lowerLip: {
-    label: 'Lower Lip',
-    index: 335,
-    offsetX: 0,
-    offsetY: 0,
-    styles: [
-      { id: 'stud', label: 'Stud', shape: 'stud', size: 4 },
-      { id: 'ring', label: 'Small Ring', shape: 'ring', size: 4 },
-    ],
-  },
+  leftNostril: { label: 'Left Nostril', index: 220, offsetX: 0, offsetY: 0 },
+  rightNostril: { label: 'Right Nostril', index: 437, offsetX: 0, offsetY: 15 },
+  septum: { label: 'Septum', index: 274, offsetX: 0, offsetY: 0 },
+  leftEyebrow: { label: 'Left Eyebrow', index: 276, offsetX: 0, offsetY: 0 },
+  rightEyebrow: { label: 'Right Eyebrow', index: 46, offsetX: 0, offsetY: 0 },
+  lowerLip: { label: 'Lower Lip', index: 335, offsetX: 0, offsetY: 0 },
 };
 
-// ---- Chrome-style rendering helpers ----
-// Multi-band gradients fake an environment reflection; the alternating
-// light/dark banding is what makes small shapes read as polished metal
-// rather than flat drawings.
-const CHROME_BANDS = [
-  [0, '#ffffff'],
-  [0.16, '#e9e9ec'],
-  [0.32, '#8f8f9a'],
-  [0.45, '#55555f'],
-  [0.55, '#d6d6db'],
-  [0.72, '#83838d'],
-  [0.86, '#f3f3f5'],
-  [1, '#c9c9cf'],
-];
-
-const chromeStrokeGradient = (ctx, x, y, size) => {
-  const g = ctx.createLinearGradient(x - size, y - size, x + size, y + size);
-  CHROME_BANDS.forEach(([stop, color]) => g.addColorStop(stop, color));
-  return g;
+// Jewelry styles per piercing point. `width` is the rendered width in px at
+// REFERENCE_FACE_WIDTH (tragus-to-tragus); actual draw size scales with the
+// live face width. Images are transparent PNGs, drawn centered on the anchor.
+const JEWELRY = {
+  leftNostril: [
+    { id: 'stud', label: 'Stud', src: '/jewelry/nostril-stud.png', width: 10 },
+    { id: 'hoop', label: 'Small Hoop', src: '/jewelry/nostril-hoop.png', width: 16 },
+  ],
+  rightNostril: [
+    { id: 'stud', label: 'Stud', src: '/jewelry/nostril-stud.png', width: 10 },
+    { id: 'hoop', label: 'Small Hoop', src: '/jewelry/nostril-hoop.png', width: 16 },
+  ],
+  septum: [
+    { id: 'ring', label: 'Ring', src: '/jewelry/septum-ring.png', width: 20 },
+    { id: 'horseshoe', label: 'Horseshoe', src: '/jewelry/septum-horseshoe.png', width: 20 },
+    { id: 'hoop', label: 'Small Hoop', src: '/jewelry/septum-hoop.png', width: 14 },
+  ],
+  leftEyebrow: [
+    { id: 'straight', label: 'Straight Barbell', src: '/jewelry/barbell-straight.png', width: 26 },
+    { id: 'curved', label: 'Curved Barbell', src: '/jewelry/barbell-curved.png', width: 26 },
+  ],
+  rightEyebrow: [
+    { id: 'straight', label: 'Straight Barbell', src: '/jewelry/barbell-straight.png', width: 26 },
+    { id: 'curved', label: 'Curved Barbell', src: '/jewelry/barbell-curved.png', width: 26 },
+  ],
+  lowerLip: [
+    { id: 'stud', label: 'Stud', src: '/jewelry/lip-stud.png', width: 10 },
+    { id: 'ring', label: 'Small Ring', src: '/jewelry/lip-ring.png', width: 14 },
+  ],
 };
 
-const withShadow = (ctx, fn) => {
-  ctx.save();
-  ctx.shadowColor = 'rgba(0, 0, 0, 0.45)';
-  ctx.shadowBlur = 4;
-  ctx.shadowOffsetY = 2;
-  fn();
-  ctx.restore();
+// jewelryFor('septum') -> all styles for that point.
+// jewelryFor('septum', 'ring') -> the single matching style, or undefined.
+const jewelryFor = (pointKey, styleId) => {
+  const styles = JEWELRY[pointKey];
+  if (!styles) return undefined;
+  if (styleId === undefined) return styles;
+  return styles.find((s) => s.id === styleId);
 };
 
-// Sphere with an offset key light, a floor-bounce fill at the bottom,
-// and a hard specular dot.
-const drawChromeBall = (ctx, x, y, r) => {
-  const base = ctx.createRadialGradient(x - r * 0.35, y - r * 0.4, r * 0.08, x, y, r * 1.15);
-  base.addColorStop(0, '#ffffff');
-  base.addColorStop(0.3, '#e6e6ea');
-  base.addColorStop(0.55, '#9b9ba4');
-  base.addColorStop(0.8, '#4e4e58');
-  base.addColorStop(1, '#2e2e36');
-  ctx.beginPath();
-  ctx.arc(x, y, r, 0, Math.PI * 2);
-  ctx.fillStyle = base;
-  ctx.fill();
+// ---- Module-level asset preload ----
+// Keyed by src so draw code and swatches share one decoded-image cache.
+const JEWELRY_SOURCES = [...new Set(Object.values(JEWELRY).flatMap((styles) => styles.map((s) => s.src)))];
 
-  const bounce = ctx.createRadialGradient(x, y + r * 0.7, 0, x, y + r * 0.7, r * 0.6);
-  bounce.addColorStop(0, 'rgba(255, 255, 255, 0.35)');
-  bounce.addColorStop(1, 'rgba(255, 255, 255, 0)');
-  ctx.beginPath();
-  ctx.arc(x, y, r, 0, Math.PI * 2);
-  ctx.fillStyle = bounce;
-  ctx.fill();
+const IMAGES = {};
 
-  ctx.beginPath();
-  ctx.arc(x - r * 0.35, y - r * 0.42, r * 0.2, 0, Math.PI * 2);
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
-  ctx.fill();
-};
-
-// Tube cross-section: dark under-stroke for depth, chrome band stroke on top,
-// then narrow specular sweeps where light rakes across the metal.
-const strokeChromeArc = (ctx, x, y, size, startAngle, endAngle) => {
-  ctx.save();
-  ctx.lineCap = 'round';
-
-  withShadow(ctx, () => {
-    ctx.beginPath();
-    ctx.arc(x, y, size, startAngle, endAngle);
-    ctx.strokeStyle = 'rgba(28, 28, 34, 0.9)';
-    ctx.lineWidth = 3;
-    ctx.stroke();
-  });
-
-  ctx.beginPath();
-  ctx.arc(x, y, size, startAngle, endAngle);
-  ctx.strokeStyle = chromeStrokeGradient(ctx, x, y, size);
-  ctx.lineWidth = 2.2;
-  ctx.stroke();
-
-  ctx.beginPath();
-  ctx.arc(x, y, size, 1.05 * Math.PI, 1.55 * Math.PI);
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
-  ctx.lineWidth = 0.8;
-  ctx.stroke();
-
-  ctx.beginPath();
-  ctx.arc(x, y, size, 0.25 * Math.PI, 0.6 * Math.PI);
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
-  ctx.lineWidth = 0.6;
-  ctx.stroke();
-
-  ctx.restore();
-};
-
-const drawRing = (ctx, x, y, size) => {
-  strokeChromeArc(ctx, x, y, size, 0, Math.PI * 2);
-};
-
-const drawStud = (ctx, x, y, size) => {
-  withShadow(ctx, () => {
-    ctx.beginPath();
-    ctx.arc(x, y, size, 0, Math.PI * 2);
-    ctx.fillStyle = '#55555f';
-    ctx.fill();
-  });
-  drawChromeBall(ctx, x, y, size);
-};
-
-const drawHorseshoe = (ctx, x, y, size) => {
-  const startAngle = 0.25 * Math.PI;
-  const endAngle = 1.75 * Math.PI;
-
-  strokeChromeArc(ctx, x, y, size, startAngle, endAngle);
-
-  [startAngle, endAngle].forEach((angle) => {
-    const ex = x + size * Math.cos(angle);
-    const ey = y + size * Math.sin(angle);
-    drawChromeBall(ctx, ex, ey, 1.8);
-  });
-};
-
-const drawBarbell = (ctx, x, y, size, curved) => {
-  let x1;
-  let y1;
-  let x2;
-  let y2;
-
-  ctx.save();
-  ctx.lineCap = 'round';
-
-  if (curved) {
-    const centerY = y + size * 0.5;
-    const startAngle = 1.15 * Math.PI;
-    const endAngle = 1.85 * Math.PI;
-
-    withShadow(ctx, () => {
-      ctx.beginPath();
-      ctx.arc(x, centerY, size, startAngle, endAngle);
-      ctx.strokeStyle = 'rgba(28, 28, 34, 0.9)';
-      ctx.lineWidth = 3;
-      ctx.stroke();
+JEWELRY_SOURCES.forEach((src) => {
+  const img = new Image();
+  const entry = { img, ready: false, width: 0, height: 0 };
+  IMAGES[src] = entry;
+  img.src = src;
+  img
+    .decode()
+    .then(() => {
+      entry.ready = true;
+      entry.width = img.naturalWidth;
+      entry.height = img.naturalHeight;
+    })
+    .catch(() => {
+      // Leave ready=false; drawing stays gated off for this asset.
     });
+});
 
-    ctx.beginPath();
-    ctx.arc(x, centerY, size, startAngle, endAngle);
-    ctx.strokeStyle = chromeStrokeGradient(ctx, x, centerY, size);
-    ctx.lineWidth = 2.2;
-    ctx.stroke();
+// Tragus-to-tragus (234/454) approximates full face width and is stable
+// under expression changes, unlike eye or mouth landmarks.
+const TRAGUS_LEFT = 234;
+const TRAGUS_RIGHT = 454;
 
-    ctx.beginPath();
-    ctx.arc(x, centerY, size, 1.3 * Math.PI, 1.6 * Math.PI);
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
-    ctx.lineWidth = 0.8;
-    ctx.stroke();
+// Calibration baseline: jewelry `width` values are tuned for a face this
+// many px wide (tragus-to-tragus) in canvas device-pixel space.
+const REFERENCE_FACE_WIDTH = 220;
 
-    x1 = x + size * Math.cos(startAngle);
-    y1 = centerY + size * Math.sin(startAngle);
-    x2 = x + size * Math.cos(endAngle);
-    y2 = centerY + size * Math.sin(endAngle);
-  } else {
-    x1 = x - size;
-    y1 = y;
-    x2 = x + size;
-    y2 = y;
+const EMA_ALPHA = 0.35;
 
-    withShadow(ctx, () => {
-      ctx.beginPath();
-      ctx.moveTo(x1, y1);
-      ctx.lineTo(x2, y2);
-      ctx.strokeStyle = 'rgba(28, 28, 34, 0.9)';
-      ctx.lineWidth = 3;
-      ctx.stroke();
-    });
+const emptyEma = () => ({ width: null, angle: null, points: {} });
 
-    // Vertical gradient across the bar's thickness reads as a lit cylinder.
-    const g = ctx.createLinearGradient(x, y - 1.2, x, y + 1.2);
-    g.addColorStop(0, '#f5f5f7');
-    g.addColorStop(0.35, '#ffffff');
-    g.addColorStop(0.7, '#8f8f9a');
-    g.addColorStop(1, '#4e4e58');
-    ctx.beginPath();
-    ctx.moveTo(x1, y1);
-    ctx.lineTo(x2, y2);
-    ctx.strokeStyle = g;
-    ctx.lineWidth = 2.2;
-    ctx.stroke();
-  }
+const emaLerp = (prev, next) => (prev === null ? next : prev + EMA_ALPHA * (next - prev));
 
-  ctx.restore();
-
-  [[x1, y1], [x2, y2]].forEach(([bx, by]) => {
-    drawChromeBall(ctx, bx, by, 2.2);
-  });
+// Shortest-path angle smoothing avoids a snap when the raw angle wraps past +-pi.
+const emaLerpAngle = (prev, next) => {
+  if (prev === null) return next;
+  const delta = Math.atan2(Math.sin(next - prev), Math.cos(next - prev));
+  return prev + EMA_ALPHA * delta;
 };
 
-const SHAPE_DRAWERS = {
-  ring: (ctx, x, y, style) => drawRing(ctx, x, y, style.size),
-  stud: (ctx, x, y, style) => drawStud(ctx, x, y, style.size),
-  horseshoe: (ctx, x, y, style) => drawHorseshoe(ctx, x, y, style.size),
-  barbell: (ctx, x, y, style) => drawBarbell(ctx, x, y, style.size, style.curved),
+const drawJewelry = (ctx, entry, drawWidthAtReference, x, y, scale, angle) => {
+  const drawWidth = drawWidthAtReference * scale;
+  const aspect = entry.height / entry.width;
+  const drawHeight = drawWidth * aspect;
+
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(angle);
+  ctx.drawImage(entry.img, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight);
+  ctx.restore();
 };
 
 const FaceTracker = forwardRef(function FaceTracker({ activeStyles = {} }, ref) {
@@ -275,6 +115,8 @@ const FaceTracker = forwardRef(function FaceTracker({ activeStyles = {} }, ref) 
   const faceMeshRef = useRef(null);
   const animationFrameRef = useRef(null);
   const activeStylesRef = useRef(activeStyles);
+  const emaRef = useRef(emptyEma());
+  const lastSizeRef = useRef({ width: 0, height: 0 });
   const [error, setError] = useState(null);
 
   useEffect(() => {
@@ -285,11 +127,11 @@ const FaceTracker = forwardRef(function FaceTracker({ activeStyles = {} }, ref) 
     capturePhoto: () => {
       const video = videoRef.current;
       const canvas = canvasRef.current;
-      if (!video || !canvas || canvas.width === 0) return null;
+      if (!video || !canvas || canvas.width === 0 || video.videoWidth === 0) return null;
 
       const exportCanvas = document.createElement('canvas');
-      exportCanvas.width = canvas.width;
-      exportCanvas.height = canvas.height;
+      exportCanvas.width = video.videoWidth;
+      exportCanvas.height = video.videoHeight;
       const ctx = exportCanvas.getContext('2d');
 
       ctx.save();
@@ -298,7 +140,13 @@ const FaceTracker = forwardRef(function FaceTracker({ activeStyles = {} }, ref) 
       ctx.drawImage(video, 0, 0, exportCanvas.width, exportCanvas.height);
       ctx.restore();
 
-      ctx.drawImage(canvas, 0, 0);
+      // Overlay canvas resolution (rect * dpr) differs from the video's
+      // native resolution, so scale it into the export frame.
+      ctx.drawImage(
+        canvas,
+        0, 0, canvas.width, canvas.height,
+        0, 0, exportCanvas.width, exportCanvas.height,
+      );
 
       return exportCanvas.toDataURL('image/png');
     },
@@ -315,11 +163,19 @@ const FaceTracker = forwardRef(function FaceTracker({ activeStyles = {} }, ref) 
     let resizeObserver = null;
 
     const syncCanvasSize = () => {
-      if (video.videoWidth > 0 && video.videoHeight > 0) {
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-      }
       const rect = video.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) return;
+
+      const dpr = window.devicePixelRatio || 1;
+      const width = Math.round(rect.width * dpr);
+      const height = Math.round(rect.height * dpr);
+
+      if (width !== lastSizeRef.current.width || height !== lastSizeRef.current.height) {
+        canvas.width = width;
+        canvas.height = height;
+        lastSizeRef.current = { width, height };
+      }
+
       canvas.style.width = `${rect.width}px`;
       canvas.style.height = `${rect.height}px`;
     };
@@ -349,7 +205,8 @@ const FaceTracker = forwardRef(function FaceTracker({ activeStyles = {} }, ref) 
         resizeObserver.observe(video);
 
         const faceMesh = new window.FaceMesh({
-          locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`,
+          locateFile: (file) =>
+            `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.1633559619/${file}`,
         });
 
         faceMesh.setOptions({
@@ -366,25 +223,65 @@ const FaceTracker = forwardRef(function FaceTracker({ activeStyles = {} }, ref) 
           ctx.clearRect(0, 0, canvas.width, canvas.height);
 
           const landmarks = results.multiFaceLandmarks?.[0];
-          if (!landmarks) return;
+          if (!landmarks) {
+            emaRef.current = emptyEma();
+            return;
+          }
 
+          const left = landmarks[TRAGUS_LEFT];
+          const right = landmarks[TRAGUS_RIGHT];
+          if (!left || !right) {
+            emaRef.current = emptyEma();
+            return;
+          }
+
+          const lx = (1 - left.x) * canvas.width;
+          const ly = left.y * canvas.height;
+          const rx = (1 - right.x) * canvas.width;
+          const ry = right.y * canvas.height;
+
+          const ema = emaRef.current;
+          const rawWidth = Math.hypot(rx - lx, ry - ly);
+          const rawAngle = Math.atan2(ry - ly, rx - lx);
+
+          ema.width = emaLerp(ema.width, rawWidth);
+          ema.angle = emaLerpAngle(ema.angle, rawAngle);
+
+          const scale = ema.width / REFERENCE_FACE_WIDTH;
+          const cos = Math.cos(ema.angle);
+          const sin = Math.sin(ema.angle);
           const active = activeStylesRef.current;
 
           Object.entries(PIERCING_POINTS).forEach(([key, point]) => {
             const styleId = active[key];
-            if (!styleId) return;
+            if (!styleId) {
+              delete ema.points[key];
+              return;
+            }
 
-            const style = point.styles.find((s) => s.id === styleId);
+            const style = jewelryFor(key, styleId);
             if (!style) return;
+
+            const asset = IMAGES[style.src];
+            if (!asset || !asset.ready) return;
 
             const lm = landmarks[point.index];
             if (!lm) return;
 
-            const x = (1 - lm.x) * canvas.width + point.offsetX;
-            const y = lm.y * canvas.height + point.offsetY;
+            const ox = point.offsetX * scale;
+            const oy = point.offsetY * scale;
+            const rotOx = ox * cos - oy * sin;
+            const rotOy = ox * sin + oy * cos;
 
-            const drawFn = SHAPE_DRAWERS[style.shape];
-            if (drawFn) drawFn(ctx, x, y, style);
+            const rawX = (1 - lm.x) * canvas.width + rotOx;
+            const rawY = lm.y * canvas.height + rotOy;
+
+            const prev = ema.points[key] ?? null;
+            const smoothedX = prev === null ? rawX : prev.x + EMA_ALPHA * (rawX - prev.x);
+            const smoothedY = prev === null ? rawY : prev.y + EMA_ALPHA * (rawY - prev.y);
+            ema.points[key] = { x: smoothedX, y: smoothedY };
+
+            drawJewelry(ctx, asset, style.width, smoothedX, smoothedY, scale, ema.angle);
           });
         });
 
@@ -441,6 +338,7 @@ const FaceTracker = forwardRef(function FaceTracker({ activeStyles = {} }, ref) 
       cameraRef.current = null;
       faceMeshRef.current?.close();
       faceMeshRef.current = null;
+      emaRef.current = emptyEma();
     };
   }, []);
 
@@ -474,4 +372,4 @@ const FaceTracker = forwardRef(function FaceTracker({ activeStyles = {} }, ref) 
 });
 
 export default FaceTracker;
-export { PIERCING_POINTS, SHAPE_DRAWERS };
+export { PIERCING_POINTS, JEWELRY, jewelryFor };

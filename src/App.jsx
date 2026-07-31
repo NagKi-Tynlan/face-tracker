@@ -1,10 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
-import FaceTracker, { PIERCING_POINTS, SHAPE_DRAWERS } from './FaceTracker';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import FaceTracker, { PIERCING_POINTS, jewelryFor } from './FaceTracker';
 import './App.css';
 
 const TIMER_MODES = [0, 3, 10];
-const SWATCH_SIZE = 48;
-const SWATCH_SCALE = 2.4;
 
 function GridIcon() {
   return (
@@ -21,27 +19,6 @@ function TimerIcon() {
       <path d="M7 4.8v2.7l1.8 1.1M5.5 1h3" />
     </svg>
   );
-}
-
-// Live swatch rendered with the same SHAPE_DRAWERS the overlay uses,
-// scaled up because jewelry sizes are tuned for face-landmark space.
-function StyleSwatch({ style }) {
-  const canvasRef = useRef(null);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.save();
-    ctx.translate(canvas.width / 2, canvas.height / 2);
-    ctx.scale(SWATCH_SCALE, SWATCH_SCALE);
-    const drawFn = SHAPE_DRAWERS[style.shape];
-    if (drawFn) drawFn(ctx, 0, 0, style);
-    ctx.restore();
-  }, [style]);
-
-  return <canvas ref={canvasRef} width={SWATCH_SIZE} height={SWATCH_SIZE} className="swatch" />;
 }
 
 function App() {
@@ -176,14 +153,14 @@ function App() {
             </div>
             {openTray && (
               <div className="tray">
-                {PIERCING_POINTS[openTray].styles.map((style) => (
+                {jewelryFor(openTray).map((style) => (
                   <button
                     key={style.id}
                     type="button"
                     className={`tray-item ${activeStyles[openTray] === style.id ? 'active' : ''}`}
                     onClick={() => selectStyle(openTray, style.id)}
                   >
-                    <StyleSwatch style={style} />
+                    <img className="swatch" src={style.src} alt={style.label} />
                     <span className="tray-item-label">{style.label}</span>
                   </button>
                 ))}
