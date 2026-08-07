@@ -1,8 +1,99 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import FaceTracker, { PIERCING_POINTS, jewelryFor } from './FaceTracker';
+import FaceTracker, {
+  PIERCING_POINTS,
+  jewelryFor,
+  REFERENCE_FACE_WIDTH,
+  tuningKey,
+  defaultTuning,
+} from './FaceTracker';
 import './App.css';
 
 const TIMER_MODES = [0, 3, 10];
+
+// ---- TEMPORARY: jewelry tuning panel ----
+// Flip to false to hide the panel. To remove the feature entirely, delete this
+// constant, TUNING_SLIDERS, TuningPanel, the `tuning` state and its handler,
+// the <TuningPanel> render, the `tuning` prop on <FaceTracker>, and the
+// tuning exports in FaceTracker.jsx. Styles are inline so App.css stays clean.
+const DEBUG_TUNING = true;
+
+// Slider ranges are fractions of the tragus-to-tragus face width, so a tuned
+// value holds at any distance from the camera.
+const TUNING_SLIDERS = [
+  { field: 'offsetX', min: -0.15, max: 0.15 },
+  { field: 'offsetY', min: -0.15, max: 0.15 },
+  { field: 'widthRatio', min: 0.01, max: 0.15 },
+];
+
+const TUNING_STYLES = {
+  panel: {
+    position: 'fixed',
+    top: 12,
+    left: 12,
+    zIndex: 50,
+    width: 260,
+    padding: '10px 12px',
+    borderRadius: 10,
+    background: 'rgba(16, 16, 20, 0.92)',
+    border: '1px solid rgba(255, 255, 255, 0.16)',
+    color: '#f2f2f2',
+    font: '12px ui-monospace, SFMono-Regular, Menlo, monospace',
+  },
+  title: { fontWeight: 700, marginBottom: 8 },
+  row: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 },
+  field: { width: 66, flexShrink: 0 },
+  slider: { flex: 1, minWidth: 0 },
+  value: { width: 44, flexShrink: 0, textAlign: 'right' },
+  footer: {
+    marginTop: 8,
+    paddingTop: 8,
+    borderTop: '1px solid rgba(255, 255, 255, 0.14)',
+    lineHeight: 1.5,
+    color: '#b9b9c4',
+  },
+};
+
+// Sliders work in ratios; the config they get written back into is px at
+// REFERENCE_FACE_WIDTH, so show both and say which field takes which.
+function TuningPanel({ positionKey, styleId, values, onChange }) {
+  const point = PIERCING_POINTS[positionKey];
+  const style = jewelryFor(positionKey, styleId);
+  const px = (ratio) => (ratio * REFERENCE_FACE_WIDTH).toFixed(1);
+
+  return (
+    <div style={TUNING_STYLES.panel}>
+      <div style={TUNING_STYLES.title}>
+        {point.label} · {style.label}
+      </div>
+
+      {TUNING_SLIDERS.map(({ field, min, max }) => (
+        <label key={field} style={TUNING_STYLES.row}>
+          <span style={TUNING_STYLES.field}>{field}</span>
+          <input
+            type="range"
+            min={min}
+            max={max}
+            step={0.001}
+            value={values[field]}
+            onChange={(event) => onChange(field, Number(event.target.value))}
+            style={TUNING_STYLES.slider}
+          />
+          <span style={TUNING_STYLES.value}>{values[field].toFixed(3)}</span>
+        </label>
+      ))}
+
+      <div style={TUNING_STYLES.footer}>
+        <div>
+          PIERCING_POINTS.{positionKey}: offsetX {px(values.offsetX)}, offsetY{' '}
+          {px(values.offsetY)}
+        </div>
+        <div>
+          JEWELRY.{positionKey}[{style.id}]: width {px(values.widthRatio)}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function GridIcon() {
   return (
@@ -31,6 +122,20 @@ function App() {
   const [flash, setFlash] = useState(false);
   const [openTray, setOpenTray] = useState(null);
   const [lastShot, setLastShot] = useState(null);
+  // TEMPORARY: keyed by tuningKey(position, styleId). Stays {} when
+  // DEBUG_TUNING is false, since only the panel ever writes to it.
+  const [tuning, setTuning] = useState({});
+
+  // The panel targets the open position's worn piece; null hides it.
+  const tunedStyleId = openTray ? activeStyles[openTray] : null;
+  const tunedKey = tunedStyleId ? tuningKey(openTray, tunedStyleId) : null;
+  const tunedValues = tunedKey
+    ? tuning[tunedKey] ?? defaultTuning(openTray, tunedStyleId)
+    : null;
+
+  const updateTuning = (field, value) => {
+    setTuning((prev) => ({ ...prev, [tunedKey]: { ...tunedValues, [field]: value } }));
+  };
 
   const capture = () => {
     const dataUrl = trackerRef.current?.capturePhoto();
@@ -124,7 +229,7 @@ function App() {
           </header>
 
           <div className="viewfinder">
-            <FaceTracker ref={trackerRef} activeStyles={activeStyles} />
+            <FaceTracker ref={trackerRef} activeStyles={activeStyles} tuning={tuning} />
             {gridOn && (
               <div className="grid-overlay" aria-hidden="true">
                 <span className="grid-line v v1" />
@@ -192,6 +297,15 @@ function App() {
           <span className="home-button" />
         </div>
       </div>
+
+      {DEBUG_TUNING && tunedValues && (
+        <TuningPanel
+          positionKey={openTray}
+          styleId={tunedStyleId}
+          values={tunedValues}
+          onChange={updateTuning}
+        />
+      )}
     </div>
   );
 }

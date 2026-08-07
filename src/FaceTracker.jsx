@@ -1,19 +1,84 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 
-// Landmark indices confirmed via click-to-identify testing — never change these
-// or the offsetX/offsetY values without re-calibrating against the live camera.
-const PIERCING_POINTS = {
-  leftNostril: { label: 'Left Nostril', index: 220, offsetX: 0, offsetY: 0 },
-  rightNostril: { label: 'Right Nostril', index: 437, offsetX: 0, offsetY: 15 },
-  septum: { label: 'Septum', index: 274, offsetX: 0, offsetY: 0 },
-  leftEyebrow: { label: 'Left Eyebrow', index: 276, offsetX: 0, offsetY: 0 },
-  rightEyebrow: { label: 'Right Eyebrow', index: 46, offsetX: 0, offsetY: 0 },
-  lowerLip: { label: 'Lower Lip', index: 335, offsetX: 0, offsetY: 0 },
+// ---- TEMPORARY: landmark debug overlay ----
+// Flip to false to turn the overlay off; nothing else in the file reads these
+// constants, so this whole block can be deleted once calibration is finished.
+const DEBUG_LANDMARKS = false;
+
+// The only landmarks drawn — candidates being evaluated as piercing anchors.
+const DEBUG_LANDMARK_INDICES = [
+  1, 2, 4, 19, 44, 45, 51, 59, 94, 97, 98, 99, 115, 125, 129, 141,
+  165, 235, 250, 274, 275, 294, 305, 331, 344, 358, 370, 462,
+];
+
+// In CSS px; scaled by devicePixelRatio at draw time because the canvas
+// backing store is sized in device pixels.
+const DEBUG_DOT_SIZE = 3;
+const DEBUG_LABEL_FONT_SIZE = 14;
+const DEBUG_LABEL_OFFSET = 6;
+
+// Uses the same (1 - x) flip as the jewelry so dots land on the face as the
+// user sees it. Text is unaffected — only the video element is CSS-mirrored.
+// Dots and labels are separate passes so every label sits above every dot,
+// and so fillStyle/font are set once rather than per landmark.
+const drawDebugLandmarks = (ctx, landmarks, canvas) => {
+  const dpr = window.devicePixelRatio || 1;
+  const radius = (DEBUG_DOT_SIZE * dpr) / 2;
+  const offset = DEBUG_LABEL_OFFSET * dpr;
+
+  const points = DEBUG_LANDMARK_INDICES.flatMap((index) => {
+    const lm = landmarks[index];
+    if (!lm) return [];
+    return [{ index, x: (1 - lm.x) * canvas.width, y: lm.y * canvas.height }];
+  });
+
+  ctx.save();
+
+  ctx.fillStyle = '#f0f';
+  points.forEach(({ x, y }) => {
+    ctx.beginPath();
+    ctx.arc(x, y, radius, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  ctx.font = `bold ${Math.round(DEBUG_LABEL_FONT_SIZE * dpr)}px sans-serif`;
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'bottom';
+  ctx.strokeStyle = '#000';
+  ctx.lineWidth = 3 * dpr;
+  ctx.lineJoin = 'round';
+  ctx.fillStyle = '#fff';
+  points.forEach(({ index, x, y }) => {
+    const label = String(index);
+    // Bottom-left of the text sits up-and-right of the dot, clear of it.
+    ctx.strokeText(label, x + offset, y - offset);
+    ctx.fillText(label, x + offset, y - offset);
+  });
+
+  ctx.restore();
 };
 
-// Jewelry styles per piercing point. `width` is the rendered width in px at
-// REFERENCE_FACE_WIDTH (tragus-to-tragus); actual draw size scales with the
-// live face width. Images are transparent PNGs, drawn centered on the anchor.
+// Landmark indices taken from the canonical MediaPipe FaceMesh topology.
+// The offsetX/offsetY values below predate these indices and have NOT been
+// re-calibrated against the live camera — verify each one before relying on it.
+const PIERCING_POINTS = {
+  leftNostril: { label: 'Left Nostril', index: 129, offsetX: 0, offsetY: 0 },
+  rightNostril: { label: 'Right Nostril', index: 358, offsetX: 0, offsetY: 15 },
+  septum: { label: 'Septum', index: 2, offsetX: 0, offsetY: 0 },
+  leftEyebrow: { label: 'Left Eyebrow', index: 105, offsetX: 0, offsetY: 0 },
+  rightEyebrow: { label: 'Right Eyebrow', index: 334, offsetX: 0, offsetY: 0 },
+  lowerLip: { label: 'Lower Lip', index: 17, offsetX: 0, offsetY: 0 },
+};
+
+// Jewelry styles per piercing point. Images are transparent PNGs, drawn
+// centered on the anchor; actual draw size scales with the live face width.
+//
+// Two placement schemas are in play while calibration is in progress:
+//   - `widthRatio` + `offset: [x, y]` — face-width ratios, straight off the
+//     DEBUG_TUNING sliders. Per style, and wins when present.
+//   - `width` — the older px-at-REFERENCE_FACE_WIDTH value, paired with the
+//     per-position offsetX/offsetY in PIERCING_POINTS.
+// See configPlacement() for the resolution order.
 const JEWELRY = {
   leftNostril: [
     { id: 'stud', label: 'Stud', src: '/jewelry/nostril-stud.png', width: 10 },
@@ -29,12 +94,12 @@ const JEWELRY = {
     { id: 'hoop', label: 'Small Hoop', src: '/jewelry/septum-hoop.png', width: 14 },
   ],
   leftEyebrow: [
-    { id: 'straight', label: 'Straight Barbell', src: '/jewelry/barbell-straight.png', width: 26 },
-    { id: 'curved', label: 'Curved Barbell', src: '/jewelry/barbell-curved.png', width: 26 },
+    { id: 'straight', label: 'Straight Barbell', src: '/jewelry/barbell-straight.png', widthRatio: 0.118, offset: [-0.071, -0.055] },
+    { id: 'curved', label: 'Curved Barbell', src: '/jewelry/barbell-curved.png', widthRatio: 0.118, offset: [-0.071, -0.055] },
   ],
   rightEyebrow: [
-    { id: 'straight', label: 'Straight Barbell', src: '/jewelry/barbell-straight.png', width: 26 },
-    { id: 'curved', label: 'Curved Barbell', src: '/jewelry/barbell-curved.png', width: 26 },
+    { id: 'straight', label: 'Straight Barbell', src: '/jewelry/barbell-straight.png', widthRatio: 0.118, offset: [0.071, -0.055] },
+    { id: 'curved', label: 'Curved Barbell', src: '/jewelry/barbell-curved.png', widthRatio: 0.118, offset: [0.071, -0.055] },
   ],
   lowerLip: [
     { id: 'stud', label: 'Stud', src: '/jewelry/lip-stud.png', width: 10 },
@@ -83,6 +148,30 @@ const TRAGUS_RIGHT = 454;
 // many px wide (tragus-to-tragus) in canvas device-pixel space.
 const REFERENCE_FACE_WIDTH = 220;
 
+// Normalizes either placement schema to face-width ratios. Per-style
+// widthRatio/offset win; anything without them falls back to the px `width`
+// and the per-position offsets, divided down into the same ratio space.
+const configPlacement = (point, style) => ({
+  offsetX: style.offset ? style.offset[0] : point.offsetX / REFERENCE_FACE_WIDTH,
+  offsetY: style.offset ? style.offset[1] : point.offsetY / REFERENCE_FACE_WIDTH,
+  widthRatio: style.widthRatio ?? style.width / REFERENCE_FACE_WIDTH,
+});
+
+// ---- TEMPORARY: tuning support (see DEBUG_TUNING in App.jsx) ----
+// Overrides are keyed per position+style so each piece tunes independently.
+// Delete this, the `tuning` prop, and its use in onResults once the values
+// have been written back into PIERCING_POINTS / JEWELRY above.
+const tuningKey = (positionKey, styleId) => `${positionKey}:${styleId}`;
+
+// Seeds the sliders from whatever the config currently holds, converting the
+// px-at-reference-width values into the face-width ratios the sliders use.
+const defaultTuning = (positionKey, styleId) => {
+  const point = PIERCING_POINTS[positionKey];
+  const style = jewelryFor(positionKey, styleId);
+  if (!point || !style) return null;
+  return configPlacement(point, style);
+};
+
 const EMA_ALPHA = 0.35;
 
 const emptyEma = () => ({ width: null, angle: null, points: {} });
@@ -108,13 +197,14 @@ const drawJewelry = (ctx, entry, drawWidthAtReference, x, y, scale, angle) => {
   ctx.restore();
 };
 
-const FaceTracker = forwardRef(function FaceTracker({ activeStyles = {} }, ref) {
+const FaceTracker = forwardRef(function FaceTracker({ activeStyles = {}, tuning = {} }, ref) {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const cameraRef = useRef(null);
   const faceMeshRef = useRef(null);
   const animationFrameRef = useRef(null);
   const activeStylesRef = useRef(activeStyles);
+  const tuningRef = useRef(tuning);
   const emaRef = useRef(emptyEma());
   const lastSizeRef = useRef({ width: 0, height: 0 });
   const [error, setError] = useState(null);
@@ -122,6 +212,12 @@ const FaceTracker = forwardRef(function FaceTracker({ activeStyles = {} }, ref) 
   useEffect(() => {
     activeStylesRef.current = activeStyles;
   }, [activeStyles]);
+
+  // Mirrors activeStyles: held in a ref so slider drags reach the running
+  // draw loop without tearing down and re-creating the FaceMesh pipeline.
+  useEffect(() => {
+    tuningRef.current = tuning;
+  }, [tuning]);
 
   useImperativeHandle(ref, () => ({
     capturePhoto: () => {
@@ -228,6 +324,10 @@ const FaceTracker = forwardRef(function FaceTracker({ activeStyles = {} }, ref) 
             return;
           }
 
+          // Before the tragus check below, so the overlay still renders on
+          // frames where those two landmarks are missing.
+          if (DEBUG_LANDMARKS) drawDebugLandmarks(ctx, landmarks, canvas);
+
           const left = landmarks[TRAGUS_LEFT];
           const right = landmarks[TRAGUS_RIGHT];
           if (!left || !right) {
@@ -251,6 +351,7 @@ const FaceTracker = forwardRef(function FaceTracker({ activeStyles = {} }, ref) 
           const cos = Math.cos(ema.angle);
           const sin = Math.sin(ema.angle);
           const active = activeStylesRef.current;
+          const tune = tuningRef.current;
 
           Object.entries(PIERCING_POINTS).forEach(([key, point]) => {
             const styleId = active[key];
@@ -268,8 +369,14 @@ const FaceTracker = forwardRef(function FaceTracker({ activeStyles = {} }, ref) 
             const lm = landmarks[point.index];
             if (!lm) return;
 
-            const ox = point.offsetX * scale;
-            const oy = point.offsetY * scale;
+            // A live slider override beats the config; both are face-width
+            // ratios, converted back to px at reference here so the rest of
+            // the pipeline keeps its existing units.
+            const placement = tune[tuningKey(key, styleId)] ?? configPlacement(point, style);
+            const widthAtReference = placement.widthRatio * REFERENCE_FACE_WIDTH;
+
+            const ox = placement.offsetX * REFERENCE_FACE_WIDTH * scale;
+            const oy = placement.offsetY * REFERENCE_FACE_WIDTH * scale;
             const rotOx = ox * cos - oy * sin;
             const rotOy = ox * sin + oy * cos;
 
@@ -281,7 +388,7 @@ const FaceTracker = forwardRef(function FaceTracker({ activeStyles = {} }, ref) 
             const smoothedY = prev === null ? rawY : prev.y + EMA_ALPHA * (rawY - prev.y);
             ema.points[key] = { x: smoothedX, y: smoothedY };
 
-            drawJewelry(ctx, asset, style.width, smoothedX, smoothedY, scale, ema.angle);
+            drawJewelry(ctx, asset, widthAtReference, smoothedX, smoothedY, scale, ema.angle);
           });
         });
 
@@ -373,3 +480,5 @@ const FaceTracker = forwardRef(function FaceTracker({ activeStyles = {} }, ref) 
 
 export default FaceTracker;
 export { PIERCING_POINTS, JEWELRY, jewelryFor };
+// TEMPORARY: consumed only by the DEBUG_TUNING panel in App.jsx.
+export { REFERENCE_FACE_WIDTH, tuningKey, defaultTuning };
