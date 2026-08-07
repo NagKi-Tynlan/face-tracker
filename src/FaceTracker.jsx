@@ -144,6 +144,24 @@ JEWELRY_SOURCES.forEach((src) => {
 const TRAGUS_LEFT = 234;
 const TRAGUS_RIGHT = 454;
 
+// The nose tip protrudes, so turning the head sweeps it laterally toward
+// whichever side is rotating away from the camera. Its drift from the tragus
+// midpoint, over face width, is a cheap yaw proxy that needs no 3D solve.
+const NOSE_TIP = 1;
+
+// Fraction of face width the nose may drift before the receding side's
+// jewelry is hidden. Raise to keep pieces visible further into a turn.
+const YAW_THRESHOLD = 0.15;
+
+// Which side each piercing sits on, in the same sense as TRAGUS_LEFT/RIGHT.
+// Centered positions (septum, lowerLip) are absent and always draw.
+const POSITION_SIDE = {
+  leftNostril: 'left',
+  leftEyebrow: 'left',
+  rightNostril: 'right',
+  rightEyebrow: 'right',
+};
+
 // Calibration baseline: jewelry `width` values are tuned for a face this
 // many px wide (tragus-to-tragus) in canvas device-pixel space.
 const REFERENCE_FACE_WIDTH = 220;
@@ -174,7 +192,7 @@ const defaultTuning = (positionKey, styleId) => {
 
 const EMA_ALPHA = 0.35;
 
-const emptyEma = () => ({ width: null, angle: null, points: {} });
+const emptyEma = () => ({ width: null, angle: null, yaw: null, points: {} });
 
 const emaLerp = (prev, next) => (prev === null ? next : prev + EMA_ALPHA * (next - prev));
 
@@ -347,6 +365,26 @@ const FaceTracker = forwardRef(function FaceTracker({ activeStyles = {}, tuning 
           ema.width = emaLerp(ema.width, rawWidth);
           ema.angle = emaLerpAngle(ema.angle, rawAngle);
 
+          // Head-yaw gate. lx/rx already carry the (1 - x) mirror flip, so
+          // taking the leftward direction from them keeps the sign right
+          // without assuming which screen edge TRAGUS_LEFT lands on.
+          // Smoothed like the rest so a face sitting on the threshold does
+          // not flicker the jewelry on and off frame to frame.
+          const nose = landmarks[NOSE_TIP];
+          if (nose && ema.width > 0) {
+            const nx = (1 - nose.x) * canvas.width;
+            const leftward = lx > rx ? 1 : -1;
+            const rawYaw = ((nx - (lx + rx) / 2) * leftward) / ema.width;
+            ema.yaw = emaLerp(ema.yaw, rawYaw);
+          }
+
+          // Positive yaw = nose swung toward the TRAGUS_LEFT side = that side
+          // has rotated away from the camera.
+          const yaw = ema.yaw ?? 0;
+          let hiddenSide = null;
+          if (yaw > YAW_THRESHOLD) hiddenSide = 'left';
+          else if (yaw < -YAW_THRESHOLD) hiddenSide = 'right';
+
           const scale = ema.width / REFERENCE_FACE_WIDTH;
           const cos = Math.cos(ema.angle);
           const sin = Math.sin(ema.angle);
@@ -356,6 +394,14 @@ const FaceTracker = forwardRef(function FaceTracker({ activeStyles = {}, tuning 
           Object.entries(PIERCING_POINTS).forEach(([key, point]) => {
             const styleId = active[key];
             if (!styleId) {
+              delete ema.points[key];
+              return;
+            }
+
+            // On the side that has turned away. Dropping the smoothed point
+            // makes it re-seed at its true position when the head comes back
+            // instead of sliding in from a stale one.
+            if (hiddenSide && POSITION_SIDE[key] === hiddenSide) {
               delete ema.points[key];
               return;
             }
