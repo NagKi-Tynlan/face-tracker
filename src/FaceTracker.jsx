@@ -73,25 +73,23 @@ const PIERCING_POINTS = {
 // Jewelry styles per piercing point. Images are transparent PNGs, drawn
 // centered on the anchor; actual draw size scales with the live face width.
 //
-// Two placement schemas are in play while calibration is in progress:
-//   - `widthRatio` + `offset: [x, y]` — face-width ratios, straight off the
-//     DEBUG_TUNING sliders. Per style, and wins when present.
-//   - `width` — the older px-at-REFERENCE_FACE_WIDTH value, paired with the
-//     per-position offsetX/offsetY in PIERCING_POINTS.
-// See configPlacement() for the resolution order.
+// Every entry sizes itself with `widthRatio`, a face-width ratio in the same
+// space as the DEBUG_TUNING sliders. Offset still resolves two ways (see
+// configPlacement): a per-style `offset: [x, y]` (also face-width ratios)
+// when present, else the per-position offsetX/offsetY in PIERCING_POINTS.
 const JEWELRY = {
   leftNostril: [
-    { id: 'stud', label: 'Stud', src: '/jewelry/nostril-stud.png', width: 10 },
-    { id: 'hoop', label: 'Small Hoop', src: '/jewelry/nostril-hoop.png', width: 16 },
+    { id: 'stud', label: 'Stud', src: '/jewelry/nostril-stud.png', widthRatio: 0.045, offset: [0.024, 0.055] },
+    { id: 'hoop', label: 'Small Hoop', src: '/jewelry/nostril-hoop.png', widthRatio: 0.073, offset: [0.024, 0.055] },
   ],
   rightNostril: [
-    { id: 'stud', label: 'Stud', src: '/jewelry/nostril-stud.png', width: 10 },
-    { id: 'hoop', label: 'Small Hoop', src: '/jewelry/nostril-hoop.png', width: 16 },
+    { id: 'stud', label: 'Stud', src: '/jewelry/nostril-stud.png', widthRatio: 0.045, offset: [-0.059, 0.066] },
+    { id: 'hoop', label: 'Small Hoop', src: '/jewelry/nostril-hoop.png', widthRatio: 0.073, offset: [-0.059, 0.066] },
   ],
   septum: [
-    { id: 'ring', label: 'Ring', src: '/jewelry/septum-ring.png', width: 20 },
-    { id: 'horseshoe', label: 'Horseshoe', src: '/jewelry/septum-horseshoe.png', width: 20 },
-    { id: 'hoop', label: 'Small Hoop', src: '/jewelry/septum-hoop.png', width: 14 },
+    { id: 'ring', label: 'Ring', src: '/jewelry/septum-ring.png', widthRatio: 0.091 },
+    { id: 'horseshoe', label: 'Horseshoe', src: '/jewelry/septum-horseshoe.png', widthRatio: 0.091 },
+    { id: 'hoop', label: 'Small Hoop', src: '/jewelry/septum-hoop.png', widthRatio: 0.064 },
   ],
   leftEyebrow: [
     { id: 'straight', label: 'Straight Barbell', src: '/jewelry/barbell-straight.png', widthRatio: 0.118, offset: [-0.071, -0.055] },
@@ -102,8 +100,8 @@ const JEWELRY = {
     { id: 'curved', label: 'Curved Barbell', src: '/jewelry/barbell-curved.png', widthRatio: 0.118, offset: [0.071, -0.055] },
   ],
   lowerLip: [
-    { id: 'stud', label: 'Stud', src: '/jewelry/lip-stud.png', width: 10 },
-    { id: 'ring', label: 'Small Ring', src: '/jewelry/lip-ring.png', width: 14 },
+    { id: 'stud', label: 'Stud', src: '/jewelry/lip-stud.png', widthRatio: 0.045 },
+    { id: 'ring', label: 'Small Ring', src: '/jewelry/lip-ring.png', widthRatio: 0.064 },
   ],
 };
 
@@ -162,17 +160,18 @@ const POSITION_SIDE = {
   rightEyebrow: 'right',
 };
 
-// Calibration baseline: jewelry `width` values are tuned for a face this
-// many px wide (tragus-to-tragus) in canvas device-pixel space.
+// Calibration baseline: the px offsetX/offsetY in PIERCING_POINTS are tuned
+// for a face this many px wide (tragus-to-tragus) in canvas device-pixel
+// space, and the live face width divides by it to give the draw scale.
 const REFERENCE_FACE_WIDTH = 220;
 
-// Normalizes either placement schema to face-width ratios. Per-style
-// widthRatio/offset win; anything without them falls back to the px `width`
-// and the per-position offsets, divided down into the same ratio space.
+// Normalizes placement to face-width ratios. Sizes are already ratios; a
+// style without its own `offset` falls back to the per-position px offsets,
+// divided down into the same ratio space.
 const configPlacement = (point, style) => ({
   offsetX: style.offset ? style.offset[0] : point.offsetX / REFERENCE_FACE_WIDTH,
   offsetY: style.offset ? style.offset[1] : point.offsetY / REFERENCE_FACE_WIDTH,
-  widthRatio: style.widthRatio ?? style.width / REFERENCE_FACE_WIDTH,
+  widthRatio: style.widthRatio,
 });
 
 // ---- TEMPORARY: tuning support (see DEBUG_TUNING in App.jsx) ----
@@ -181,8 +180,8 @@ const configPlacement = (point, style) => ({
 // have been written back into PIERCING_POINTS / JEWELRY above.
 const tuningKey = (positionKey, styleId) => `${positionKey}:${styleId}`;
 
-// Seeds the sliders from whatever the config currently holds, converting the
-// px-at-reference-width values into the face-width ratios the sliders use.
+// Seeds the sliders from whatever the config currently holds, in the same
+// face-width ratio space the sliders work in.
 const defaultTuning = (positionKey, styleId) => {
   const point = PIERCING_POINTS[positionKey];
   const style = jewelryFor(positionKey, styleId);
