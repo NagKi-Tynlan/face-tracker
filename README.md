@@ -1,4 +1,13 @@
-# React + Vite
+# PiercedUp
+
+Webcam piercing try-on. React 19 + Vite 8, deployed to GitHub Pages at
+<https://nagki-tynlan.github.io/face-tracker/>. Static and client-only: face
+tracking runs in-browser via MediaPipe, and no video ever leaves the device.
+
+> **Repo settings (not code):** turn on **Settings → Pages → Enforce HTTPS** and
+> **Settings → Code security → Dependabot alerts + security updates**.
+
+## React + Vite
 
 This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
 

@@ -1,63 +1,5 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 
-// ---- TEMPORARY: landmark debug overlay ----
-// Flip to false to turn the overlay off; nothing else in the file reads these
-// constants, so this whole block can be deleted once calibration is finished.
-const DEBUG_LANDMARKS = false;
-
-// The only landmarks drawn — candidates being evaluated as piercing anchors.
-const DEBUG_LANDMARK_INDICES = [
-  1, 2, 4, 19, 44, 45, 51, 59, 94, 97, 98, 99, 115, 125, 129, 141,
-  165, 235, 250, 274, 275, 294, 305, 331, 344, 358, 370, 462,
-];
-
-// In CSS px; scaled by devicePixelRatio at draw time because the canvas
-// backing store is sized in device pixels.
-const DEBUG_DOT_SIZE = 3;
-const DEBUG_LABEL_FONT_SIZE = 14;
-const DEBUG_LABEL_OFFSET = 6;
-
-// Uses the same (1 - x) flip as the jewelry so dots land on the face as the
-// user sees it. Text is unaffected — only the video element is CSS-mirrored.
-// Dots and labels are separate passes so every label sits above every dot,
-// and so fillStyle/font are set once rather than per landmark.
-const drawDebugLandmarks = (ctx, landmarks, canvas) => {
-  const dpr = window.devicePixelRatio || 1;
-  const radius = (DEBUG_DOT_SIZE * dpr) / 2;
-  const offset = DEBUG_LABEL_OFFSET * dpr;
-
-  const points = DEBUG_LANDMARK_INDICES.flatMap((index) => {
-    const lm = landmarks[index];
-    if (!lm) return [];
-    return [{ index, x: (1 - lm.x) * canvas.width, y: lm.y * canvas.height }];
-  });
-
-  ctx.save();
-
-  ctx.fillStyle = '#f0f';
-  points.forEach(({ x, y }) => {
-    ctx.beginPath();
-    ctx.arc(x, y, radius, 0, Math.PI * 2);
-    ctx.fill();
-  });
-
-  ctx.font = `bold ${Math.round(DEBUG_LABEL_FONT_SIZE * dpr)}px sans-serif`;
-  ctx.textAlign = 'left';
-  ctx.textBaseline = 'bottom';
-  ctx.strokeStyle = '#000';
-  ctx.lineWidth = 3 * dpr;
-  ctx.lineJoin = 'round';
-  ctx.fillStyle = '#fff';
-  points.forEach(({ index, x, y }) => {
-    const label = String(index);
-    // Bottom-left of the text sits up-and-right of the dot, clear of it.
-    ctx.strokeText(label, x + offset, y - offset);
-    ctx.fillText(label, x + offset, y - offset);
-  });
-
-  ctx.restore();
-};
-
 // Landmark indices taken from the canonical MediaPipe FaceMesh topology.
 // The offsetX/offsetY values below predate these indices and have NOT been
 // re-calibrated against the live camera — verify each one before relying on it.
@@ -70,38 +12,64 @@ const PIERCING_POINTS = {
   lowerLip: { label: 'Lower Lip', index: 17, offsetX: 0, offsetY: 0 },
 };
 
-// Jewelry styles per piercing point. Images are transparent PNGs, drawn
-// centered on the anchor; actual draw size scales with the live face width.
+// Jewelry styles per piercing point. Images are transparent PNGs pinned to the
+// landmark; actual draw size scales with the live face width.
 //
 // Every entry sizes itself with `widthRatio`, a face-width ratio in the same
-// space as the DEBUG_TUNING sliders. Offset still resolves two ways (see
+// space as the Adjust sliders. Offset still resolves two ways (see
 // configPlacement): a per-style `offset: [x, y]` (also face-width ratios)
 // when present, else the per-position offsetX/offsetY in PIERCING_POINTS.
+//
+// Optional per-style fields:
+//   rotationOffset  degrees, default 0. Corrects a source PNG shot at the wrong
+//                   orientation — e.g. a curved barbell photographed vertically.
+//                   Added to the head-roll angle, spinning the sprite about its
+//                   own pivot, so it never shifts placement.
+//   anchor          [ax, ay] in normalized image coords, default [0.5, 0.5]
+//                   (centered). Names the point of the PNG that lands on the
+//                   landmark, letting a piece hang off its pivot the way real
+//                   jewelry hangs off the hole rather than sitting on top of it.
+//   mirror          flips the sprite horizontally about its anchor, for pieces
+//                   whose left- and right-side versions are the same asset.
+
+// Vite rewrites root-absolute URLs inside index.html to carry the base path,
+// but not string literals in JS — so a bare '/jewelry/x.png' 404s once the site
+// is served from the /face-tracker/ sub-path. BASE_URL keeps these correct in
+// dev ('/') and on Pages ('/face-tracker/') alike.
+const jewelryAsset = (file) => `${import.meta.env.BASE_URL}jewelry/${file}`;
+
+// nostril-hoop.png is an open ring with its post-and-ball at the top right.
+// That post is what passes through the piercing, so pinning the landmark there
+// — rather than at the ring's center — lets the visible curve hang down and
+// outward off the nostril edge. One value serves both sides: `mirror` flips the
+// sprite about this same point, swapping which way the curve falls.
+const NOSTRIL_HOOP_ANCHOR = [0.78, 0.12];
+
 const JEWELRY = {
   leftNostril: [
-    { id: 'stud', label: 'Stud', src: '/jewelry/nostril-stud.png', widthRatio: 0.045, offset: [0.024, 0.055] },
-    { id: 'hoop', label: 'Small Hoop', src: '/jewelry/nostril-hoop.png', widthRatio: 0.073, offset: [0.024, 0.055] },
+    { id: 'stud', label: 'Stud', src: jewelryAsset('nostril-stud.png'), widthRatio: 0.045, offset: [0.024, 0.055] },
+    { id: 'hoop', label: 'Small Hoop', src: jewelryAsset('nostril-hoop.png'), widthRatio: 0.073, offset: [0.024, 0.055], anchor: NOSTRIL_HOOP_ANCHOR },
   ],
   rightNostril: [
-    { id: 'stud', label: 'Stud', src: '/jewelry/nostril-stud.png', widthRatio: 0.045, offset: [-0.059, 0.066] },
-    { id: 'hoop', label: 'Small Hoop', src: '/jewelry/nostril-hoop.png', widthRatio: 0.073, offset: [-0.059, 0.066] },
+    { id: 'stud', label: 'Stud', src: jewelryAsset('nostril-stud.png'), widthRatio: 0.045, offset: [-0.059, 0.066] },
+    { id: 'hoop', label: 'Small Hoop', src: jewelryAsset('nostril-hoop.png'), widthRatio: 0.073, offset: [-0.059, 0.066], anchor: NOSTRIL_HOOP_ANCHOR, mirror: true },
   ],
   septum: [
-    { id: 'ring', label: 'Ring', src: '/jewelry/septum-ring.png', widthRatio: 0.091 },
-    { id: 'horseshoe', label: 'Horseshoe', src: '/jewelry/septum-horseshoe.png', widthRatio: 0.091 },
-    { id: 'hoop', label: 'Small Hoop', src: '/jewelry/septum-hoop.png', widthRatio: 0.064 },
+    { id: 'ring', label: 'Ring', src: jewelryAsset('septum-ring.png'), widthRatio: 0.091 },
+    { id: 'horseshoe', label: 'Horseshoe', src: jewelryAsset('septum-horseshoe.png'), widthRatio: 0.091 },
+    { id: 'hoop', label: 'Small Hoop', src: jewelryAsset('septum-hoop.png'), widthRatio: 0.064 },
   ],
   leftEyebrow: [
-    { id: 'straight', label: 'Straight Barbell', src: '/jewelry/barbell-straight.png', widthRatio: 0.118, offset: [-0.071, -0.055] },
-    { id: 'curved', label: 'Curved Barbell', src: '/jewelry/barbell-curved.png', widthRatio: 0.118, offset: [-0.071, -0.055] },
+    { id: 'straight', label: 'Straight Barbell', src: jewelryAsset('barbell-straight.png'), widthRatio: 0.118, offset: [-0.071, -0.055] },
+    { id: 'curved', label: 'Curved Barbell', src: jewelryAsset('barbell-curved.png'), widthRatio: 0.118, offset: [-0.071, -0.055] },
   ],
   rightEyebrow: [
-    { id: 'straight', label: 'Straight Barbell', src: '/jewelry/barbell-straight.png', widthRatio: 0.118, offset: [0.071, -0.055] },
-    { id: 'curved', label: 'Curved Barbell', src: '/jewelry/barbell-curved.png', widthRatio: 0.118, offset: [0.071, -0.055] },
+    { id: 'straight', label: 'Straight Barbell', src: jewelryAsset('barbell-straight.png'), widthRatio: 0.118, offset: [0.071, -0.055] },
+    { id: 'curved', label: 'Curved Barbell', src: jewelryAsset('barbell-curved.png'), widthRatio: 0.118, offset: [0.071, -0.055] },
   ],
   lowerLip: [
-    { id: 'stud', label: 'Stud', src: '/jewelry/lip-stud.png', widthRatio: 0.045 },
-    { id: 'ring', label: 'Small Ring', src: '/jewelry/lip-ring.png', widthRatio: 0.064 },
+    { id: 'stud', label: 'Stud', src: jewelryAsset('lip-stud.png'), widthRatio: 0.045 },
+    { id: 'ring', label: 'Small Ring', src: jewelryAsset('lip-ring.png'), widthRatio: 0.064 },
   ],
 };
 
@@ -172,17 +140,19 @@ const configPlacement = (point, style) => ({
   offsetX: style.offset ? style.offset[0] : point.offsetX / REFERENCE_FACE_WIDTH,
   offsetY: style.offset ? style.offset[1] : point.offsetY / REFERENCE_FACE_WIDTH,
   widthRatio: style.widthRatio,
+  rotationOffset: style.rotationOffset ?? 0,
 });
 
-// ---- TEMPORARY: tuning support (see DEBUG_TUNING in App.jsx) ----
-// Overrides are keyed per position+style so each piece tunes independently.
-// Delete this, the `tuning` prop, and its use in onResults once the values
-// have been written back into PIERCING_POINTS / JEWELRY above.
-const tuningKey = (positionKey, styleId) => `${positionKey}:${styleId}`;
+// ---- User adjustments (the Adjust panel in App.jsx) ----
+// A piece the user has nudged keeps tracking its landmark exactly as before;
+// only the offset/size/rotation numbers feeding that math get replaced. Keyed
+// per position+style so every piece adjusts independently, and so switching
+// styles and coming back returns to what the user set.
+const adjustmentKey = (positionKey, styleId) => `${positionKey}:${styleId}`;
 
 // Seeds the sliders from whatever the config currently holds, in the same
 // face-width ratio space the sliders work in.
-const defaultTuning = (positionKey, styleId) => {
+const defaultAdjustment = (positionKey, styleId) => {
   const point = PIERCING_POINTS[positionKey];
   const style = jewelryFor(positionKey, styleId);
   if (!point || !style) return null;
@@ -202,29 +172,257 @@ const emaLerpAngle = (prev, next) => {
   return prev + EMA_ALPHA * delta;
 };
 
-const drawJewelry = (ctx, entry, drawWidthAtReference, x, y, scale, angle) => {
+// Fakes the small contact shadow real jewelry casts, so a piece reads as
+// sitting on skin rather than pasted over it. Both are fractions of the live
+// face width, which is already in canvas device px — no separate DPR term.
+const SHADOW_COLOR = 'rgba(0,0,0,0.5)';
+const SHADOW_BLUR_RATIO = 0.015;
+const SHADOW_OFFSET_Y_RATIO = 0.008;
+
+// Just shy of opaque, so the hard PNG cutout edge doesn't knife against skin.
+const JEWELRY_ALPHA = 0.96;
+
+// Where the landmark sits on the sprite when a style names no `anchor`.
+const DEFAULT_ANCHOR = [0.5, 0.5];
+
+// How much of the sprite's larger dimension counts as grabbable, as a radius
+// about its drawn center.
+const GRAB_RADIUS_RATIO = 0.6;
+
+// Returns where the artwork actually landed — center and grab radius in canvas
+// px — so drag hit-testing can reuse the geometry instead of recomputing it.
+const drawJewelry = (
+  ctx,
+  entry,
+  drawWidthAtReference,
+  x,
+  y,
+  scale,
+  angle,
+  { rotationOffset = 0, anchor = DEFAULT_ANCHOR, mirror = false } = {},
+) => {
   const drawWidth = drawWidthAtReference * scale;
   const aspect = entry.height / entry.width;
   const drawHeight = drawWidth * aspect;
+  // scale is the smoothed face width over the reference, so this recovers that
+  // width in canvas px — the unit the shadow ratios above are expressed in.
+  const faceWidth = scale * REFERENCE_FACE_WIDTH;
+  const rotation = angle + (rotationOffset * Math.PI) / 180;
 
   ctx.save();
   ctx.translate(x, y);
-  ctx.rotate(angle);
-  ctx.drawImage(entry.img, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight);
+  // Head roll plus the per-style orientation fix. Applied after translate, so
+  // it rotates the sprite about its anchor and leaves placement untouched.
+  ctx.rotate(rotation);
+  // Innermost, so it flips the artwork about the anchor without reversing the
+  // sense of the rotation above — a mirrored piece still rolls with the head.
+  if (mirror) ctx.scale(-1, 1);
+
+  // Canvas shadow offsets ignore the current transform, so the shadow keeps
+  // falling straight down on screen as the head rolls — which is what overhead
+  // lighting would do anyway. globalAlpha multiplies the shadow too, leaving it
+  // a touch under the 0.5 in SHADOW_COLOR.
+  ctx.shadowColor = SHADOW_COLOR;
+  ctx.shadowBlur = faceWidth * SHADOW_BLUR_RATIO;
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = faceWidth * SHADOW_OFFSET_Y_RATIO;
+  ctx.globalAlpha = JEWELRY_ALPHA;
+
+  // Anchor is a fraction of the sprite, so the named point lands on the origin
+  // — i.e. on the landmark — whatever the piece's size or aspect.
+  ctx.drawImage(entry.img, -drawWidth * anchor[0], -drawHeight * anchor[1], drawWidth, drawHeight);
+
+  // The restore() below already unwinds these. Cleared explicitly as well so no
+  // shadow can stack or bleed onto the next piece if that pairing ever changes.
+  ctx.shadowColor = 'transparent';
+  ctx.shadowBlur = 0;
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = 0;
+  ctx.globalAlpha = 1;
+
+  ctx.restore();
+
+  // The anchor can sit well off the sprite's middle — a nose hoop hangs below
+  // its post — so a drag has to aim at the drawn artwork, not the landmark.
+  // Same rotation the sprite got, and the mirror flips which side it leans to.
+  const localX = (0.5 - anchor[0]) * drawWidth * (mirror ? -1 : 1);
+  const localY = (0.5 - anchor[1]) * drawHeight;
+  const cos = Math.cos(rotation);
+  const sin = Math.sin(rotation);
+
+  const extent = Math.max(drawWidth, drawHeight) / 2;
+
+  return {
+    x: x + localX * cos - localY * sin,
+    y: y + localX * sin + localY * cos,
+    radius: extent * 2 * GRAB_RADIUS_RATIO,
+    // The gizmo needs the piece's half-size to orbit, and its rotation so the
+    // handles ride around with it.
+    extent,
+    rotation,
+  };
+};
+
+// ---- Drag-to-position ----
+// Smallest grab target, in CSS px, so a stud stays catchable on a phone even
+// though it draws only a few pixels across.
+const MIN_GRAB_RADIUS = 26;
+
+// Only the <video> is CSS-mirrored; the overlay canvas carries no transform and
+// the draw loop already flipped landmarks with (1 - x), so it is *already* in
+// mirrored screen space. Pointer coords therefore map straight across — the
+// only conversion needed is CSS px to the canvas's device-pixel backing store,
+// which is also what keeps this correct under devicePixelRatio.
+const canvasPoint = (canvas, event) => {
+  const rect = canvas.getBoundingClientRect();
+  if (rect.width === 0 || rect.height === 0) return null;
+  return {
+    x: (event.clientX - rect.left) * (canvas.width / rect.width),
+    y: (event.clientY - rect.top) * (canvas.height / rect.height),
+    perCssPx: canvas.width / rect.width,
+  };
+};
+
+// Nearest drawn piece within its grab radius, or null. Overlapping pieces
+// resolve to whichever center the pointer is closest to.
+const nearestPiece = (pieces, point) => {
+  const floor = MIN_GRAB_RADIUS * point.perCssPx;
+  let best = null;
+  let bestDistance = Infinity;
+
+  pieces.forEach((piece) => {
+    const distance = Math.hypot(point.x - piece.x, point.y - piece.y);
+    if (distance > Math.max(piece.radius, floor)) return;
+    if (distance >= bestDistance) return;
+    bestDistance = distance;
+    best = piece;
+  });
+
+  return best;
+};
+
+// ---- Selected-piece gizmo ----
+// Sizes are CSS px, scaled to device px at draw time. The grips stay small so
+// they don't bury the jewelry; the hit radius is much larger so they stay
+// thumb-sized on a phone.
+const HANDLE_GAP = 12;
+const HANDLE_RADIUS = 8;
+const HANDLE_HIT_RADIUS = 22;
+
+// Mirrors --amber / --bar in App.css; canvas can't read CSS custom properties.
+const HANDLE_AMBER = '#ffcc00';
+const HANDLE_DARK = '#101010';
+const HANDLE_RIM = 'rgba(0, 0, 0, 0.55)';
+
+// Resize sits down-right of the piece and rotate up-right, both carried around
+// by the piece's own rotation so the gizmo reads as attached to it.
+const HANDLE_LAYOUT = [
+  { kind: 'resize', angle: Math.PI / 4 },
+  { kind: 'rotate', angle: -Math.PI / 4 },
+];
+
+const pieceHandles = (piece, dpr) => {
+  const orbit = piece.extent + HANDLE_GAP * dpr;
+  return HANDLE_LAYOUT.map(({ kind, angle }) => {
+    const around = piece.rotation + angle;
+    return {
+      kind,
+      x: piece.x + orbit * Math.cos(around),
+      y: piece.y + orbit * Math.sin(around),
+    };
+  });
+};
+
+const drawHandles = (ctx, piece, handles, dpr) => {
+  const orbit = piece.extent + HANDLE_GAP * dpr;
+
+  ctx.save();
+
+  // Faint ring frames the selection and shows what the grips are attached to,
+  // without competing with the jewelry it surrounds.
+  ctx.strokeStyle = HANDLE_AMBER;
+  ctx.globalAlpha = 0.35;
+  ctx.lineWidth = Math.max(dpr, 1);
+  ctx.beginPath();
+  ctx.arc(piece.x, piece.y, orbit, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.globalAlpha = 1;
+
+  handles.forEach(({ kind, x, y }) => {
+    // Filled vs hollow is what tells the two apart at grip size — an icon would
+    // be illegible in 8px.
+    const filled = kind === 'resize';
+    ctx.beginPath();
+    ctx.arc(x, y, HANDLE_RADIUS * dpr, 0, Math.PI * 2);
+    ctx.fillStyle = filled ? HANDLE_AMBER : HANDLE_DARK;
+    ctx.fill();
+    ctx.strokeStyle = filled ? HANDLE_RIM : HANDLE_AMBER;
+    ctx.lineWidth = Math.max(1.5 * dpr, 1);
+    ctx.stroke();
+  });
+
   ctx.restore();
 };
 
-const FaceTracker = forwardRef(function FaceTracker({ activeStyles = {}, tuning = {} }, ref) {
+// Grips beat the piece body, so grabbing one transforms rather than moves.
+const handleAt = (handles, point) => {
+  const limit = HANDLE_HIT_RADIUS * point.perCssPx;
+  let best = null;
+  let bestDistance = Infinity;
+
+  handles.forEach((handle) => {
+    const distance = Math.hypot(point.x - handle.x, point.y - handle.y);
+    if (distance > limit || distance >= bestDistance) return;
+    bestDistance = distance;
+    best = handle;
+  });
+
+  return best;
+};
+
+// Keeps a resized piece from vanishing or swallowing the frame.
+const MIN_WIDTH_RATIO = 0.012;
+const MAX_WIDTH_RATIO = 0.25;
+
+const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
+
+// Shortest path around the circle, so a drag across +-pi doesn't jump.
+const wrapAngle = (radians) => Math.atan2(Math.sin(radians), Math.cos(radians));
+
+const normalizeDegrees = (degrees) => ((((degrees + 180) % 360) + 360) % 360) - 180;
+
+const FaceTracker = forwardRef(function FaceTracker(
+  {
+    activeStyles = {},
+    adjustments = {},
+    adjustMode = false,
+    selectedPosition = null,
+    onPieceSelect,
+    onPieceAdjust,
+  },
+  ref,
+) {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
+  // Handles live on their own canvas stacked above the jewelry: capturePhoto
+  // composites only canvasRef, so the gizmo can never end up in a saved photo.
+  const gizmoRef = useRef(null);
   const cameraRef = useRef(null);
   const faceMeshRef = useRef(null);
   const animationFrameRef = useRef(null);
   const activeStylesRef = useRef(activeStyles);
-  const tuningRef = useRef(tuning);
+  const adjustmentsRef = useRef(adjustments);
   const emaRef = useRef(emptyEma());
   const lastSizeRef = useRef({ width: 0, height: 0 });
+  const selectedRef = useRef(selectedPosition);
+  // Last frame's drawn pieces, in canvas px — the drag's hit targets.
+  const drawnRef = useRef([]);
+  // Grips for the selected piece, empty when nothing is selected or the
+  // selected piece isn't on screen this frame.
+  const handlesRef = useRef([]);
+  const dragRef = useRef(null);
   const [error, setError] = useState(null);
+  const [dragging, setDragging] = useState(false);
 
   useEffect(() => {
     activeStylesRef.current = activeStyles;
@@ -233,8 +431,20 @@ const FaceTracker = forwardRef(function FaceTracker({ activeStyles = {}, tuning 
   // Mirrors activeStyles: held in a ref so slider drags reach the running
   // draw loop without tearing down and re-creating the FaceMesh pipeline.
   useEffect(() => {
-    tuningRef.current = tuning;
-  }, [tuning]);
+    adjustmentsRef.current = adjustments;
+  }, [adjustments]);
+
+  useEffect(() => {
+    selectedRef.current = selectedPosition;
+  }, [selectedPosition]);
+
+  // Leaving Adjust mode mid-drag would otherwise strand the drag: the canvas
+  // goes inert and no pointerup arrives to clear it.
+  useEffect(() => {
+    if (adjustMode) return;
+    dragRef.current = null;
+    setDragging(false);
+  }, [adjustMode]);
 
   useImperativeHandle(ref, () => ({
     capturePhoto: () => {
@@ -282,15 +492,22 @@ const FaceTracker = forwardRef(function FaceTracker({ activeStyles = {}, tuning 
       const dpr = window.devicePixelRatio || 1;
       const width = Math.round(rect.width * dpr);
       const height = Math.round(rect.height * dpr);
+      // Both layers share one coordinate space, so pointer math on the gizmo
+      // canvas applies unchanged to what was drawn on the jewelry canvas.
+      const layers = [canvas, gizmoRef.current].filter(Boolean);
 
       if (width !== lastSizeRef.current.width || height !== lastSizeRef.current.height) {
-        canvas.width = width;
-        canvas.height = height;
+        layers.forEach((layer) => {
+          layer.width = width;
+          layer.height = height;
+        });
         lastSizeRef.current = { width, height };
       }
 
-      canvas.style.width = `${rect.width}px`;
-      canvas.style.height = `${rect.height}px`;
+      layers.forEach((layer) => {
+        layer.style.width = `${rect.width}px`;
+        layer.style.height = `${rect.height}px`;
+      });
     };
 
     const init = async () => {
@@ -333,22 +550,26 @@ const FaceTracker = forwardRef(function FaceTracker({ activeStyles = {}, tuning 
           const ctx = canvas.getContext('2d');
           if (!ctx) return;
 
+          const gizmo = gizmoRef.current;
+          const gizmoCtx = gizmo?.getContext('2d') ?? null;
+
           ctx.clearRect(0, 0, canvas.width, canvas.height);
+          // Cleared up front so every early return below leaves no stale grips.
+          if (gizmoCtx) gizmoCtx.clearRect(0, 0, gizmo.width, gizmo.height);
+          handlesRef.current = [];
 
           const landmarks = results.multiFaceLandmarks?.[0];
           if (!landmarks) {
             emaRef.current = emptyEma();
+            drawnRef.current = [];
             return;
           }
-
-          // Before the tragus check below, so the overlay still renders on
-          // frames where those two landmarks are missing.
-          if (DEBUG_LANDMARKS) drawDebugLandmarks(ctx, landmarks, canvas);
 
           const left = landmarks[TRAGUS_LEFT];
           const right = landmarks[TRAGUS_RIGHT];
           if (!left || !right) {
             emaRef.current = emptyEma();
+            drawnRef.current = [];
             return;
           }
 
@@ -388,7 +609,9 @@ const FaceTracker = forwardRef(function FaceTracker({ activeStyles = {}, tuning 
           const cos = Math.cos(ema.angle);
           const sin = Math.sin(ema.angle);
           const active = activeStylesRef.current;
-          const tune = tuningRef.current;
+          const adjusted = adjustmentsRef.current;
+          const drag = dragRef.current;
+          const drawn = [];
 
           Object.entries(PIERCING_POINTS).forEach(([key, point]) => {
             const styleId = active[key];
@@ -414,10 +637,10 @@ const FaceTracker = forwardRef(function FaceTracker({ activeStyles = {}, tuning 
             const lm = landmarks[point.index];
             if (!lm) return;
 
-            // A live slider override beats the config; both are face-width
-            // ratios, converted back to px at reference here so the rest of
-            // the pipeline keeps its existing units.
-            const placement = tune[tuningKey(key, styleId)] ?? configPlacement(point, style);
+            // A user adjustment beats the config; both are face-width ratios,
+            // converted back to px at reference here so the rest of the
+            // pipeline keeps its existing units.
+            const placement = adjusted[adjustmentKey(key, styleId)] ?? configPlacement(point, style);
             const widthAtReference = placement.widthRatio * REFERENCE_FACE_WIDTH;
 
             const ox = placement.offsetX * REFERENCE_FACE_WIDTH * scale;
@@ -428,13 +651,55 @@ const FaceTracker = forwardRef(function FaceTracker({ activeStyles = {}, tuning 
             const rawX = (1 - lm.x) * canvas.width + rotOx;
             const rawY = lm.y * canvas.height + rotOy;
 
+            // The piece under an active drag skips position smoothing: at this
+            // alpha it would trail the finger by a few frames, which reads as
+            // broken under direct manipulation. Writing the raw point back into
+            // the EMA means smoothing resumes from here on release, no snap.
+            const held = drag !== null && drag.key === key;
             const prev = ema.points[key] ?? null;
-            const smoothedX = prev === null ? rawX : prev.x + EMA_ALPHA * (rawX - prev.x);
-            const smoothedY = prev === null ? rawY : prev.y + EMA_ALPHA * (rawY - prev.y);
+            const smoothedX = prev === null || held ? rawX : prev.x + EMA_ALPHA * (rawX - prev.x);
+            const smoothedY = prev === null || held ? rawY : prev.y + EMA_ALPHA * (rawY - prev.y);
             ema.points[key] = { x: smoothedX, y: smoothedY };
 
-            drawJewelry(ctx, asset, widthAtReference, smoothedX, smoothedY, scale, ema.angle);
+            const hit = drawJewelry(
+              ctx, asset, widthAtReference, smoothedX, smoothedY, scale, ema.angle,
+              {
+                // Rotation is user-adjustable, so it comes off the placement;
+                // anchor and mirror are fixed properties of the artwork.
+                rotationOffset: placement.rotationOffset,
+                anchor: style.anchor,
+                mirror: style.mirror,
+              },
+            );
+
+            // The current placement rides along so every drag continues from
+            // where the piece already sits rather than from its config default.
+            drawn.push({
+              key,
+              styleId,
+              x: hit.x,
+              y: hit.y,
+              radius: hit.radius,
+              extent: hit.extent,
+              rotation: hit.rotation,
+              offsetX: placement.offsetX,
+              offsetY: placement.offsetY,
+              widthRatio: placement.widthRatio,
+              rotationOffset: placement.rotationOffset,
+            });
           });
+
+          drawnRef.current = drawn;
+
+          // After the pieces, and on the layer above, so the grips are never
+          // buried by jewelry drawn later in the loop.
+          const selected = drawn.find((piece) => piece.key === selectedRef.current);
+          if (gizmoCtx && selected) {
+            const dpr = window.devicePixelRatio || 1;
+            const handles = pieceHandles(selected, dpr);
+            handlesRef.current = handles;
+            drawHandles(gizmoCtx, selected, handles, dpr);
+          }
         });
 
         faceMeshRef.current = faceMesh;
@@ -494,6 +759,123 @@ const FaceTracker = forwardRef(function FaceTracker({ activeStyles = {}, tuning 
     };
   }, []);
 
+  const handlePointerDown = (event) => {
+    const gizmo = gizmoRef.current;
+    if (!adjustMode || !gizmo) return;
+
+    const point = canvasPoint(gizmo, event);
+    if (!point) return;
+
+    // Grips are tested first, so grabbing one transforms the piece instead of
+    // dragging it out from under the gizmo.
+    const grip = handleAt(handlesRef.current, point);
+    const selected = grip
+      ? drawnRef.current.find((piece) => piece.key === selectedRef.current)
+      : null;
+    const piece = selected ?? nearestPiece(drawnRef.current, point);
+
+    if (!piece) {
+      // A press on bare canvas drops the selection, which is the only way back
+      // to showing no handles at all.
+      onPieceSelect?.(null);
+      return;
+    }
+
+    event.preventDefault();
+    gizmo.setPointerCapture(event.pointerId);
+
+    const ema = emaRef.current;
+    dragRef.current = {
+      pointerId: event.pointerId,
+      mode: grip ? grip.kind : 'move',
+      key: piece.key,
+      styleId: piece.styleId,
+      startX: point.x,
+      startY: point.y,
+      baseOffsetX: piece.offsetX,
+      baseOffsetY: piece.offsetY,
+      baseWidthRatio: piece.widthRatio,
+      baseRotationOffset: piece.rotationOffset,
+      // Guarded against a zero divisor if the grip is grabbed dead-center.
+      startDistance: Math.max(Math.hypot(point.x - piece.x, point.y - piece.y), 1),
+      startPointerAngle: Math.atan2(point.y - piece.y, point.x - piece.x),
+      startFaceAngle: ema.angle ?? 0,
+    };
+    setDragging(true);
+    onPieceSelect?.(piece.key, piece.styleId);
+  };
+
+  const handlePointerMove = (event) => {
+    const drag = dragRef.current;
+    const gizmo = gizmoRef.current;
+    if (!drag || drag.pointerId !== event.pointerId || !gizmo) return;
+
+    const ema = emaRef.current;
+    if (!ema.width) return;
+
+    const point = canvasPoint(gizmo, event);
+    if (!point) return;
+
+    if (drag.mode === 'move') {
+      // The draw loop places a piece at landmark + R(angle) * offset *
+      // faceWidth, so inverting that turns a screen-space drag back into offset
+      // units: undo the head roll, then divide out the face width. Both come
+      // from the live EMA rather than being frozen at pointerdown, so the piece
+      // stays under the finger even if the head rolls or moves closer mid-drag.
+      const dx = point.x - drag.startX;
+      const dy = point.y - drag.startY;
+      const angle = ema.angle ?? 0;
+      const cos = Math.cos(angle);
+      const sin = Math.sin(angle);
+
+      onPieceAdjust?.(drag.key, drag.styleId, {
+        offsetX: drag.baseOffsetX + (dx * cos + dy * sin) / ema.width,
+        offsetY: drag.baseOffsetY + (-dx * sin + dy * cos) / ema.width,
+      });
+      return;
+    }
+
+    // Resize and rotate both measure against the piece's live center, so they
+    // stay honest while the face keeps moving underneath.
+    const piece = drawnRef.current.find((entry) => entry.key === drag.key);
+    if (!piece) return;
+
+    if (drag.mode === 'resize') {
+      const distance = Math.hypot(point.x - piece.x, point.y - piece.y);
+      onPieceAdjust?.(drag.key, drag.styleId, {
+        widthRatio: clamp(
+          drag.baseWidthRatio * (distance / drag.startDistance),
+          MIN_WIDTH_RATIO,
+          MAX_WIDTH_RATIO,
+        ),
+      });
+      return;
+    }
+
+    // rotationOffset is added on top of head roll, so the roll that happened
+    // during the drag has to come back out — otherwise a head tilt counts twice
+    // and the grip slides away from the finger.
+    const pointerDelta = wrapAngle(
+      Math.atan2(point.y - piece.y, point.x - piece.x) - drag.startPointerAngle,
+    );
+    const rollDelta = wrapAngle((ema.angle ?? 0) - drag.startFaceAngle);
+
+    onPieceAdjust?.(drag.key, drag.styleId, {
+      rotationOffset: normalizeDegrees(
+        drag.baseRotationOffset + ((pointerDelta - rollDelta) * 180) / Math.PI,
+      ),
+    });
+  };
+
+  const handlePointerUp = (event) => {
+    const drag = dragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+
+    dragRef.current = null;
+    setDragging(false);
+    gizmoRef.current?.releasePointerCapture?.(event.pointerId);
+  };
+
   return (
     <div style={{ position: 'relative', width: '100%', display: 'block' }}>
       {error ? (
@@ -515,9 +897,30 @@ const FaceTracker = forwardRef(function FaceTracker({ activeStyles = {}, tuning 
           backgroundColor: '#000',
         }}
       />
+      {/* Jewelry layer. capturePhoto composites exactly this canvas, so it
+          holds the try-on and nothing else. */}
       <canvas
         ref={canvasRef}
         style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none' }}
+      />
+      {/* Gizmo layer: handles, and every pointer interaction. Same size and
+          coordinate space as the layer below. */}
+      <canvas
+        ref={gizmoRef}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          // Inert outside Adjust mode, so ordinary use is untouched. touchAction
+          // none is what stops a touch drag from scrolling the page instead.
+          pointerEvents: adjustMode ? 'auto' : 'none',
+          touchAction: adjustMode ? 'none' : 'auto',
+          cursor: adjustMode ? (dragging ? 'grabbing' : 'grab') : 'default',
+        }}
       />
     </div>
   );
@@ -525,5 +928,5 @@ const FaceTracker = forwardRef(function FaceTracker({ activeStyles = {}, tuning 
 
 export default FaceTracker;
 export { PIERCING_POINTS, JEWELRY, jewelryFor };
-// TEMPORARY: consumed only by the DEBUG_TUNING panel in App.jsx.
-export { REFERENCE_FACE_WIDTH, tuningKey, defaultTuning };
+// Consumed by the Adjust panel in App.jsx.
+export { adjustmentKey, defaultAdjustment };

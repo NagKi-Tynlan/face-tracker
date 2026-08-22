@@ -1,0 +1,298 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; base-uri 'self'; object-src 'none'; form-action 'none'; script-src 'none'; style-src 'unsafe-inline'; img-src 'self'"
+    />
+    <title>Privacy &amp; FAQ — PiercedUp</title>
+    <meta
+      name="description"
+      content="How PiercedUp handles your webcam video: processed locally in your browser, never uploaded or stored. Plus answers on mobile support, browsers, and affiliate links."
+    />
+    <link rel="canonical" href="https://nagki-tynlan.github.io/face-tracker/privacy.html" />
+    <link rel="icon" type="image/svg+xml" href="/face-tracker/favicon.svg" />
+    <style>
+      /* Standalone copy of the app's camera palette — this file is served
+         straight out of public/ and never sees App.css. */
+      :root {
+        --bar: #101010;
+        --amber: #ffcc00;
+        --idle: #8e8e93;
+        --hairline: #262626;
+        --cam-font: 'Helvetica Neue', 'HelveticaNeue', Helvetica, Arial, sans-serif;
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        padding: 0 20px 72px;
+        background: #000;
+        color: #ececec;
+        font-family: var(--cam-font);
+        font-size: 15px;
+        line-height: 1.65;
+        -webkit-text-size-adjust: 100%;
+      }
+
+      .wrap { max-width: 660px; margin: 0 auto; }
+
+      header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        height: 44px;
+        margin: 0 -20px 36px;
+        padding: 0 20px;
+        background: var(--bar);
+      }
+
+      .mark {
+        color: #fff;
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+      }
+
+      .back {
+        color: var(--amber);
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        text-decoration: none;
+        white-space: nowrap;
+      }
+
+      .back:hover, .back:focus-visible { text-decoration: underline; }
+
+      h1 {
+        margin: 0 0 6px;
+        font-size: 30px;
+        font-weight: 700;
+        letter-spacing: -0.01em;
+      }
+
+      .updated {
+        margin: 0 0 40px;
+        color: var(--idle);
+        font-size: 12px;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+
+      h2 {
+        margin: 40px 0 12px;
+        padding-top: 20px;
+        border-top: 1px solid var(--hairline);
+        color: var(--amber);
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0.09em;
+        text-transform: uppercase;
+      }
+
+      h3 {
+        margin: 26px 0 6px;
+        font-size: 16px;
+        font-weight: 600;
+      }
+
+      p { margin: 0 0 14px; }
+
+      ul { margin: 0 0 14px; padding-left: 20px; }
+      li { margin-bottom: 8px; }
+
+      strong { color: #fff; font-weight: 600; }
+
+      a { color: var(--amber); }
+
+      .lede {
+        padding: 14px 16px;
+        border: 1px solid var(--hairline);
+        border-radius: 4px;
+        background: var(--bar);
+      }
+
+      .lede p:last-child { margin-bottom: 0; }
+
+      .note {
+        margin-top: 40px;
+        padding-top: 20px;
+        border-top: 1px solid var(--hairline);
+        color: var(--idle);
+        font-size: 13px;
+      }
+
+      footer {
+        max-width: 660px;
+        margin: 48px auto 0;
+        color: var(--idle);
+        font-size: 12px;
+        letter-spacing: 0.04em;
+      }
+
+      footer a { color: var(--idle); }
+    </style>
+  </head>
+  <body>
+    <header>
+      <span class="mark">PiercedUp</span>
+      <a class="back" href="/face-tracker/">Back to camera</a>
+    </header>
+
+    <main class="wrap">
+      <h1>Privacy &amp; FAQ</h1>
+      <p class="updated">Last updated 19 August 2026</p>
+
+      <div class="lede">
+        <p>
+          <strong>Your camera video never leaves your device.</strong> Every frame is
+          analysed in your browser and then discarded. Nothing is uploaded, nothing is
+          recorded, and there is no server to send it to — PiercedUp is a static site
+          with no backend, no database, and no accounts.
+        </p>
+      </div>
+
+      <h2>What happens to your video</h2>
+      <p>
+        When you allow camera access, the video stream is handed to
+        <strong>MediaPipe FaceMesh</strong>, a face-tracking library that runs as
+        WebAssembly inside your browser tab. It works out where your nose, brows and
+        lips are, and the app draws jewelry over those points on a canvas. All of that
+        happens on your own machine, frame by frame.
+      </p>
+      <ul>
+        <li>No video, image, or face data is uploaded or transmitted anywhere.</li>
+        <li>Nothing is written to a server, because there is no server-side component.</li>
+        <li>
+          Frames are not retained after they are drawn — there is no recording buffer
+          and no history.
+        </li>
+        <li>
+          Face landmarks are numbers held in memory for the life of the page. Closing
+          or reloading the tab discards them.
+        </li>
+      </ul>
+
+      <h3>Photos you take</h3>
+      <p>
+        Pressing the shutter composites the current frame and jewelry into a PNG and
+        hands it to your browser as a download. That file goes wherever your browser
+        saves downloads, on your own device. It is never sent anywhere.
+      </p>
+
+      <h3>Adjustments you make</h3>
+      <p>
+        Position, size and rotation tweaks live in the page's memory for the session
+        only. They are not saved to cookies, local storage, or any server, and they are
+        gone when you reload.
+      </p>
+
+      <h2>Personal data</h2>
+      <p>
+        PiercedUp collects <strong>no personal data</strong>. There are no accounts, no
+        sign-in, no forms, no email capture, and no contact fields. The app sets no
+        cookies and writes nothing to local storage.
+      </p>
+
+      <h2>Analytics and tracking</h2>
+      <p>
+        <strong>There are none.</strong> This site runs no analytics of any kind — no
+        Google Analytics, no Plausible, Fathom, Umami, or similar; no tracking pixels;
+        no advertising or remarketing scripts; no session recording; no fingerprinting.
+        If that ever changes, this section will name the provider before it ships.
+      </p>
+
+      <h2>Third parties that do see a request</h2>
+      <p>
+        Being straight about this: loading any web page reveals your IP address and
+        browser user-agent to whoever serves the files. PiercedUp pulls from three
+        origins, and none of them receive your video or face data — only the ordinary
+        metadata attached to a file request.
+      </p>
+      <ul>
+        <li>
+          <strong>GitHub Pages</strong> hosts the site and serves the HTML, JavaScript
+          and jewelry images. GitHub keeps its own server logs.
+        </li>
+        <li>
+          <strong>jsDelivr</strong> (cdn.jsdelivr.net) serves the MediaPipe library and
+          its WebAssembly model files.
+        </li>
+        <li>
+          <strong>Google Fonts</strong> (fonts.googleapis.com, fonts.gstatic.com) serves
+          two webfonts.
+        </li>
+      </ul>
+
+      <h2>Camera permission</h2>
+      <p>
+        Your browser controls camera access, not this app. Permission is asked once per
+        site and you can revoke it at any time from the padlock or camera icon in the
+        address bar. Denying it stops the try-on from working, but nothing else on the
+        page changes.
+      </p>
+
+      <h2>Frequently asked</h2>
+
+      <h3>Is my video stored or uploaded?</h3>
+      <p>
+        No. It is processed frame by frame in your browser and discarded. There is no
+        upload step and no server that could receive it. If you would rather verify
+        than take our word for it, open your browser's developer tools, watch the
+        Network tab, and note that no request carries video data.
+      </p>
+
+      <h3>Does it work on mobile?</h3>
+      <p>
+        Yes, on a reasonably recent phone. It uses the front-facing camera, and the
+        layout drops the desktop phone-bezel frame and fills the screen on narrow
+        displays. Face tracking is real work for a phone CPU, so older or budget
+        handsets may run at a lower frame rate. iOS requires Safari 15 or newer.
+      </p>
+
+      <h3>Do I need to install anything?</h3>
+      <p>
+        No. There is no app to download, no extension, no plugin, and no account. Open
+        the page, allow camera access, and it runs. It needs an internet connection to
+        load the page and the tracking library.
+      </p>
+
+      <h3>How do the shop links work?</h3>
+      <p>
+        <strong>Affiliate disclosure:</strong> PiercedUp does not currently link to any
+        retailer — there are no "shop this piece" buttons in the app today. If shop
+        links are added, some will be affiliate links, meaning we may earn a commission
+        if you buy through them, <strong>at no extra cost to you</strong>. Commission
+        never affects which pieces are shown or how they are ordered, and any such link
+        will be labelled where it appears. This is disclosed in line with the US FTC
+        endorsement guidelines.
+      </p>
+
+      <h3>Which browsers work?</h3>
+      <p>
+        Chrome 90+, Edge 90+, Firefox 100+, and Safari 15+ on both desktop and mobile.
+        The app needs two things: camera access via WebRTC, and WebAssembly for the
+        face-tracking model. Browsers older than these, and any browser with
+        WebAssembly disabled, will load the page but not track. Camera access also
+        requires the page be served over HTTPS, which GitHub Pages does.
+      </p>
+
+      <p class="note">
+        PiercedUp is a try-on toy for seeing how jewelry might look. It is not medical
+        advice, and it is not a substitute for talking to a professional piercer about
+        anatomy, placement, or healing.
+      </p>
+    </main>
+
+    <footer class="wrap">
+      <a href="/face-tracker/">Back to camera</a>
+    </footer>
+  </body>
+</html>

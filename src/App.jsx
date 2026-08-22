@@ -1,99 +1,13 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import FaceTracker, {
   PIERCING_POINTS,
   jewelryFor,
-  REFERENCE_FACE_WIDTH,
-  tuningKey,
-  defaultTuning,
+  adjustmentKey,
+  defaultAdjustment,
 } from './FaceTracker';
 import './App.css';
 
 const TIMER_MODES = [0, 3, 10];
-
-// ---- TEMPORARY: jewelry tuning panel ----
-// Flip to false to hide the panel. To remove the feature entirely, delete this
-// constant, TUNING_SLIDERS, TuningPanel, the `tuning` state and its handler,
-// the <TuningPanel> render, the `tuning` prop on <FaceTracker>, and the
-// tuning exports in FaceTracker.jsx. Styles are inline so App.css stays clean.
-const DEBUG_TUNING = true;
-
-// Slider ranges are fractions of the tragus-to-tragus face width, so a tuned
-// value holds at any distance from the camera.
-const TUNING_SLIDERS = [
-  { field: 'offsetX', min: -0.15, max: 0.15 },
-  { field: 'offsetY', min: -0.15, max: 0.15 },
-  { field: 'widthRatio', min: 0.01, max: 0.15 },
-];
-
-const TUNING_STYLES = {
-  panel: {
-    position: 'fixed',
-    top: 12,
-    left: 12,
-    zIndex: 50,
-    width: 260,
-    padding: '10px 12px',
-    borderRadius: 10,
-    background: 'rgba(16, 16, 20, 0.92)',
-    border: '1px solid rgba(255, 255, 255, 0.16)',
-    color: '#f2f2f2',
-    font: '12px ui-monospace, SFMono-Regular, Menlo, monospace',
-  },
-  title: { fontWeight: 700, marginBottom: 8 },
-  row: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 },
-  field: { width: 66, flexShrink: 0 },
-  slider: { flex: 1, minWidth: 0 },
-  value: { width: 44, flexShrink: 0, textAlign: 'right' },
-  footer: {
-    marginTop: 8,
-    paddingTop: 8,
-    borderTop: '1px solid rgba(255, 255, 255, 0.14)',
-    lineHeight: 1.5,
-    color: '#b9b9c4',
-  },
-};
-
-// Sliders work in ratios; the config they get written back into is px at
-// REFERENCE_FACE_WIDTH, so show both and say which field takes which.
-function TuningPanel({ positionKey, styleId, values, onChange }) {
-  const point = PIERCING_POINTS[positionKey];
-  const style = jewelryFor(positionKey, styleId);
-  const px = (ratio) => (ratio * REFERENCE_FACE_WIDTH).toFixed(1);
-
-  return (
-    <div style={TUNING_STYLES.panel}>
-      <div style={TUNING_STYLES.title}>
-        {point.label} · {style.label}
-      </div>
-
-      {TUNING_SLIDERS.map(({ field, min, max }) => (
-        <label key={field} style={TUNING_STYLES.row}>
-          <span style={TUNING_STYLES.field}>{field}</span>
-          <input
-            type="range"
-            min={min}
-            max={max}
-            step={0.001}
-            value={values[field]}
-            onChange={(event) => onChange(field, Number(event.target.value))}
-            style={TUNING_STYLES.slider}
-          />
-          <span style={TUNING_STYLES.value}>{values[field].toFixed(3)}</span>
-        </label>
-      ))}
-
-      <div style={TUNING_STYLES.footer}>
-        <div>
-          PIERCING_POINTS.{positionKey}: offsetX {px(values.offsetX)}, offsetY{' '}
-          {px(values.offsetY)}
-        </div>
-        <div>
-          JEWELRY.{positionKey}[{style.id}]: width {px(values.widthRatio)}
-        </div>
-      </div>
-    </div>
-  );
-}
 
 function GridIcon() {
   return (
@@ -112,6 +26,16 @@ function TimerIcon() {
   );
 }
 
+function SlidersIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.2" aria-hidden="true">
+      <path d="M0.5 4h13M0.5 10h13" />
+      <circle cx="4.5" cy="4" r="1.9" fill="currentColor" stroke="none" />
+      <circle cx="9.5" cy="10" r="1.9" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
 function App() {
   const trackerRef = useRef(null);
   const flashTimeoutRef = useRef(null);
@@ -122,19 +46,29 @@ function App() {
   const [flash, setFlash] = useState(false);
   const [openTray, setOpenTray] = useState(null);
   const [lastShot, setLastShot] = useState(null);
-  // TEMPORARY: keyed by tuningKey(position, styleId). Stays {} when
-  // DEBUG_TUNING is false, since only the panel ever writes to it.
-  const [tuning, setTuning] = useState({});
+  // Keyed by adjustmentKey(position, styleId), so each piece holds its own
+  // tweaks for as long as the app is open. Absent key = config defaults.
+  const [adjustments, setAdjustments] = useState({});
+  const [adjustMode, setAdjustMode] = useState(false);
+  const [selectedPosition, setSelectedPosition] = useState(null);
 
-  // The panel targets the open position's worn piece; null hides it.
-  const tunedStyleId = openTray ? activeStyles[openTray] : null;
-  const tunedKey = tunedStyleId ? tuningKey(openTray, tunedStyleId) : null;
-  const tunedValues = tunedKey
-    ? tuning[tunedKey] ?? defaultTuning(openTray, tunedStyleId)
-    : null;
+  // Handles show on whichever piece was touched last, whether that was a tap on
+  // the canvas or a pick from the tray. A selection whose piece has since come
+  // off resolves to null, which is what hides the handles.
+  const hasWorn = Object.keys(activeStyles).length > 0;
+  const selectedWorn =
+    selectedPosition && activeStyles[selectedPosition] ? selectedPosition : null;
 
-  const updateTuning = (field, value) => {
-    setTuning((prev) => ({ ...prev, [tunedKey]: { ...tunedValues, [field]: value } }));
+  // Every writer goes through the functional form: a drag fires pointermove far
+  // faster than React re-renders, so reading current values off the closure
+  // would drop updates mid-drag. Patches arrive already in config units — the
+  // tracker is the only place that knows the live face width and roll angle.
+  const adjustPiece = (positionKey, styleId, patch) => {
+    const key = adjustmentKey(positionKey, styleId);
+    setAdjustments((prev) => ({
+      ...prev,
+      [key]: { ...(prev[key] ?? defaultAdjustment(positionKey, styleId)), ...patch },
+    }));
   };
 
   const capture = () => {
@@ -196,6 +130,7 @@ function App() {
       }
       return next;
     });
+    setSelectedPosition(positionKey);
   };
 
   return (
@@ -226,10 +161,29 @@ function App() {
               <TimerIcon />
               <span>{timerMode === 0 ? 'Timer' : `${timerMode}s`}</span>
             </button>
+            <button
+              type="button"
+              className={`bar-toggle ${adjustMode && hasWorn ? 'on' : ''}`}
+              aria-pressed={adjustMode && hasWorn}
+              disabled={!hasWorn}
+              title={hasWorn ? undefined : 'Put on a piece to adjust it'}
+              onClick={() => setAdjustMode((on) => !on)}
+            >
+              <SlidersIcon />
+              <span>Adjust</span>
+            </button>
           </header>
 
           <div className="viewfinder">
-            <FaceTracker ref={trackerRef} activeStyles={activeStyles} tuning={tuning} />
+            <FaceTracker
+              ref={trackerRef}
+              activeStyles={activeStyles}
+              adjustments={adjustments}
+              adjustMode={adjustMode && hasWorn}
+              selectedPosition={adjustMode && hasWorn ? selectedWorn : null}
+              onPieceSelect={(positionKey) => setSelectedPosition(positionKey)}
+              onPieceAdjust={adjustPiece}
+            />
             {gridOn && (
               <div className="grid-overlay" aria-hidden="true">
                 <span className="grid-line v v1" />
@@ -265,7 +219,13 @@ function App() {
                     className={`tray-item ${activeStyles[openTray] === style.id ? 'active' : ''}`}
                     onClick={() => selectStyle(openTray, style.id)}
                   >
-                    <img className="swatch" src={style.src} alt={style.label} />
+                    {/* Names the position too, so the alt says something the
+                        adjacent label doesn't already say out loud. */}
+                    <img
+                      className="swatch"
+                      src={style.src}
+                      alt={`${style.label} for ${PIERCING_POINTS[openTray].label.toLowerCase()}`}
+                    />
                     <span className="tray-item-label">{style.label}</span>
                   </button>
                 ))}
@@ -276,7 +236,11 @@ function App() {
           <footer className="bottom-bar">
             <div className="thumb-slot">
               {lastShot ? (
-                <img className="thumb" src={lastShot} alt="Last capture" />
+                <img
+                  className="thumb"
+                  src={lastShot}
+                  alt="Your most recent capture, with the jewelry you tried on"
+                />
               ) : (
                 <span className="thumb thumb-empty" />
               )}
@@ -289,7 +253,14 @@ function App() {
             >
               <span className={`shutter-inner ${countdown !== null ? 'counting' : ''}`} />
             </button>
-            <div className="thumb-slot" />
+            {/* BASE_URL keeps this pointing at /face-tracker/ on Pages and at /
+                in dev. privacy.html ships from public/, so it is a real
+                navigation, not a route the SPA handles. */}
+            <div className="thumb-slot thumb-slot-end">
+              <a className="footer-link" href={`${import.meta.env.BASE_URL}privacy.html`}>
+                Privacy
+              </a>
+            </div>
           </footer>
         </div>
 
@@ -297,15 +268,6 @@ function App() {
           <span className="home-button" />
         </div>
       </div>
-
-      {DEBUG_TUNING && tunedValues && (
-        <TuningPanel
-          positionKey={openTray}
-          styleId={tunedStyleId}
-          values={tunedValues}
-          onChange={updateTuning}
-        />
-      )}
     </div>
   );
 }
