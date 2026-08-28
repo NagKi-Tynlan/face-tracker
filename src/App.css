@@ -1,11 +1,17 @@
 :root {
-  --bar: #101010;
-  --amber: #ffcc00;
-  --idle: #8e8e93;
-  --hairline: #262626;
-  --bezel: #f7f7f9;
-  --bezel-line: #d9d9de;
-  --cam-font: 'Helvetica Neue', 'HelveticaNeue', Helvetica, Arial, sans-serif;
+  /* Camera-UI aliases onto the boutique palette in index.css. The bars, the
+     bezel and the trays all draw from those five colors — nothing here
+     introduces a sixth. */
+  --bar: var(--surface);
+  --idle: var(--label);
+  --hairline: var(--line);
+  --bezel: var(--paper);
+  --bezel-line: var(--line-soft);
+  --cam-font: var(--sans);
+
+  /* Desktop shell width. The viewfinder is width-driven — the video is
+     width:100%/height:auto — so this single number sizes the camera. */
+  --shell: 560px;
 }
 
 * {
@@ -14,8 +20,8 @@
 
 body {
   margin: 0;
-  background: #000;
-  color: #fff;
+  background: var(--paper);
+  color: var(--ink);
   font-family: var(--cam-font);
 }
 
@@ -32,25 +38,55 @@ body {
 .stage {
   min-height: 100svh;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 28px 0;
+  gap: 26px;
+  padding: 36px 0 44px;
+}
+
+/* ---- Wordmark ---- */
+
+.site-header {
+  width: min(var(--shell), 100vw);
+  padding: 0 20px;
+  text-align: center;
+}
+
+.wordmark {
+  font-family: var(--heading);
+  font-weight: 500;
+  font-size: clamp(2.5rem, 11vw, 3.25rem);
+  line-height: 1;
+  letter-spacing: 0.005em;
+  color: var(--ink);
+  margin: 0;
+}
+
+.tagline {
+  margin: 14px 0 0;
+  font-family: var(--sans);
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.19em;
+  text-transform: uppercase;
+  color: var(--label);
 }
 
 /* ---- iPhone bezel ---- */
 
 .phone {
-  width: min(430px, 100vw);
+  width: min(var(--shell), 100vw);
   background: var(--bezel);
   border: 1px solid var(--bezel-line);
-  border-radius: 56px;
+  border-radius: 52px;
   padding: 0 12px;
   display: flex;
   flex-direction: column;
 }
 
 .phone-ear {
-  height: 68px;
+  height: 52px;
   position: relative;
 }
 
@@ -59,25 +95,25 @@ body {
   left: 50%;
   top: 50%;
   transform: translate(-50%, -50%);
-  width: 56px;
-  height: 7px;
+  width: 48px;
+  height: 5px;
   border-radius: 4px;
-  background: #d3d3d8;
+  background: var(--line);
 }
 
 .phone-camera {
   position: absolute;
-  left: calc(50% - 58px);
+  left: calc(50% - 52px);
   top: 50%;
   transform: translateY(-50%);
-  width: 9px;
-  height: 9px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
-  background: #c4c4cb;
+  background: var(--line);
 }
 
 .phone-chin {
-  height: 88px;
+  height: 68px;
   position: relative;
 }
 
@@ -86,19 +122,19 @@ body {
   left: 50%;
   top: 50%;
   transform: translate(-50%, -50%);
-  width: 52px;
-  height: 52px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
-  border: 2px solid #cfcfd5;
-  background: #fbfbfd;
+  border: 1px solid var(--line);
+  background: transparent;
 }
 
 /* ---- Screen ---- */
 
 .screen {
-  background: #000;
-  border: 1px solid #e3e3e7;
-  border-radius: 3px;
+  background: var(--surface);
+  border: 1px solid var(--ink);
+  border-radius: 18px;
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -111,32 +147,49 @@ body {
   align-items: center;
   justify-content: space-between;
   background: var(--bar);
-  height: 44px;
-  padding: 0 8px;
+  height: 46px;
+  padding: 0 6px;
+  border-bottom: 1px solid var(--line-soft);
 }
 
 .bar-toggle {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   background: none;
   border: none;
   color: var(--idle);
   font-family: var(--cam-font);
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 500;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  padding: 8px 10px;
+  padding: 10px 12px;
   cursor: pointer;
 }
 
+/* Active state carries both a color shift and a rule beneath the label: even
+   with the idle mauve darkened, ink-vs-mauve at 10px is close enough that
+   color alone would be a coin-toss. */
 .bar-toggle.on {
-  color: var(--amber);
+  color: var(--label-on);
+  font-weight: 600;
 }
 
+.bar-toggle.on::after {
+  content: '';
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 3px;
+  height: 1px;
+  background: var(--label-on);
+}
+
+/* Dimmed enough to read as unavailable, not so far that the word disappears. */
 .bar-toggle:disabled {
-  opacity: 0.35;
+  opacity: 0.55;
   cursor: default;
 }
 
@@ -145,7 +198,7 @@ body {
 .viewfinder {
   position: relative;
   width: 100%;
-  background: #000;
+  background: var(--ink);
 }
 
 /* FaceTracker's video carries an inline border-radius; the camera screen is square */
@@ -161,7 +214,7 @@ body {
 
 .grid-line {
   position: absolute;
-  background: rgba(255, 255, 255, 0.35);
+  background: rgba(241, 240, 234, 0.4);
 }
 
 .grid-line.v {
@@ -188,17 +241,18 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 6.5rem;
-  font-weight: 200;
-  color: #fff;
-  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.6);
+  font-family: var(--heading);
+  font-size: 7rem;
+  font-weight: 400;
+  color: var(--paper);
+  text-shadow: 0 1px 10px rgba(45, 35, 46, 0.45);
   pointer-events: none;
 }
 
 .flash {
   position: absolute;
   inset: 0;
-  background: #fff;
+  background: var(--paper);
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.12s ease;
@@ -210,24 +264,25 @@ body {
 }
 
 /* Adjust mode draws its own gizmo on the canvas — see drawHandles in
-   FaceTracker.jsx, which mirrors --amber and --bar since canvas can't read
+   FaceTracker.jsx, which holds its own color constants since canvas can't read
    custom properties. Nothing to style here. */
 
 /* ---- Jewelry drawer (styled like the iOS mode wheel) ---- */
 
 .drawer {
   flex: 1;
-  min-height: 118px;
+  min-height: 112px;
   display: flex;
   flex-direction: column;
   background: var(--bar);
+  border-top: 1px solid var(--line-soft);
 }
 
 .tabs {
   display: flex;
-  gap: 6px;
+  gap: 2px;
   overflow-x: auto;
-  padding: 8px 10px 2px;
+  padding: 10px 8px 2px;
   scrollbar-width: none;
 }
 
@@ -240,30 +295,31 @@ body {
   flex-shrink: 0;
   background: none;
   border: none;
-  color: #ececec;
+  color: var(--label);
   font-family: var(--cam-font);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   white-space: nowrap;
-  padding: 8px 8px 14px;
+  padding: 8px 10px 15px;
   cursor: pointer;
 }
 
 .tab.open {
-  color: var(--amber);
+  color: var(--label-on);
+  font-weight: 600;
 }
 
 .worn-dot {
   position: absolute;
-  bottom: 5px;
+  bottom: 6px;
   left: 50%;
   transform: translateX(-50%);
-  width: 5px;
-  height: 5px;
+  width: 4px;
+  height: 4px;
   border-radius: 50%;
-  background: var(--amber);
+  background: var(--accent);
 }
 
 .tray {
@@ -283,31 +339,35 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
-  background: #000;
+  gap: 6px;
+  background: var(--paper);
   border: 1px solid var(--hairline);
-  border-radius: 3px;
-  padding: 8px 10px 6px;
-  color: var(--idle);
+  border-radius: 10px;
+  padding: 9px 12px 7px;
+  color: var(--label);
   font-family: var(--cam-font);
   cursor: pointer;
 }
 
+/* Doubling the ring rather than filling the tile: the swatches are chrome on
+   transparent, and a dark fill would swallow their shadowed edges. The ring
+   stays on the accent; only the label goes to ink, where it has to be read. */
 .tray-item.active {
-  border-color: var(--amber);
-  color: #fff;
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+  color: var(--label-on);
 }
 
 .tray-item-label {
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 500;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
   white-space: nowrap;
 }
 
-.swatch {
-  width: 48px;
-  height: 48px;
+.tray-item.active .tray-item-label {
+  font-weight: 600;
 }
 
 /* ---- Bottom bar ---- */
@@ -318,7 +378,8 @@ body {
   align-items: center;
   justify-items: center;
   background: var(--bar);
-  padding: 12px 0 16px;
+  padding: 14px 0 18px;
+  border-top: 1px solid var(--line-soft);
 }
 
 .thumb-slot {
@@ -335,40 +396,40 @@ body {
 }
 
 .footer-link {
-  color: var(--idle);
+  color: var(--label);
   font-family: var(--cam-font);
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 500;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   text-decoration: none;
 }
 
 .footer-link:hover,
 .footer-link:focus-visible {
-  color: var(--amber);
+  color: var(--label-on);
 }
 
 .thumb {
   display: block;
   width: 38px;
   height: 38px;
-  border-radius: 3px;
-  border: 1px solid #3a3a3e;
+  border-radius: 8px;
+  border: 1px solid var(--line);
   object-fit: cover;
 }
 
 .thumb-empty {
-  background: #1a1a1c;
+  background: var(--paper);
 }
 
 .shutter {
-  width: 66px;
-  height: 66px;
+  width: 64px;
+  height: 64px;
   border-radius: 50%;
-  border: 3px solid #fff;
+  border: 2px solid var(--ink);
   background: transparent;
-  padding: 3px;
+  padding: 4px;
   cursor: pointer;
 }
 
@@ -377,28 +438,55 @@ body {
   width: 100%;
   height: 100%;
   border-radius: 50%;
-  background: #fff;
-  transition: background-color 0.15s ease, transform 0.1s ease;
+  background: var(--ink);
+  transition: background-color 0.15s ease, transform 0.15s ease;
 }
 
 .shutter:active .shutter-inner {
-  transform: scale(0.92);
+  transform: scale(0.9);
 }
 
+/* Counting reads by size as well as color — accent and ink are a shade apart. */
 .shutter-inner.counting {
-  background: var(--amber);
+  background: var(--accent);
+  transform: scale(0.72);
 }
 
-/* ---- Collapse the bezel on actual phones ---- */
+/* ---- Drop the bezel on actual phones ---- */
+/* The decorative frame costs the viewfinder width it can't spare on a handset,
+   so below this breakpoint it goes entirely: no ear, no chin, no side padding.
+   The screen runs edge to edge and the bars become stacked bands on top of and
+   below the feed, which leaves the camera the largest thing on the page. */
 
-@media (max-width: 520px) {
+@media (max-width: 600px) {
   .stage {
-    padding: 0;
+    gap: 14px;
+    padding: 16px 0 18px;
+    justify-content: flex-start;
+  }
+
+  .site-header,
+  .phone {
+    width: 100%;
+  }
+
+  .site-header {
+    padding: 0 16px;
+  }
+
+  /* Trimmed to buy the feed vertical room; still the loudest type on screen. */
+  .wordmark {
+    font-size: clamp(2rem, 9vw, 2.5rem);
+  }
+
+  .tagline {
+    margin-top: 8px;
+    font-size: 0.66rem;
+    letter-spacing: 0.16em;
   }
 
   .phone {
-    width: 100%;
-    background: #000;
+    background: transparent;
     border: none;
     border-radius: 0;
     padding: 0;
@@ -409,11 +497,28 @@ body {
     display: none;
   }
 
+  /* Full-bleed: the side borders and radius would only carve pixels off a feed
+     that already runs to both edges. Top and bottom rules stay, so the bands
+     still read as separate from the page. */
   .screen {
-    border: none;
     border-radius: 0;
-    min-height: 100svh;
+    border-left: none;
+    border-right: none;
+  }
+
+  .drawer {
+    min-height: 96px;
+  }
+
+  .bottom-bar {
+    grid-template-columns: 58px 1fr 58px;
+    padding: 10px 0 12px;
+  }
+
+  .shutter {
+    width: 58px;
+    height: 58px;
   }
 }
 
-.swatch { width: 48px; height: 48px; object-fit: contain; }
+.swatch { width: 46px; height: 46px; object-fit: contain; }

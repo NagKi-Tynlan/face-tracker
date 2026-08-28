@@ -45,31 +45,35 @@ const jewelryAsset = (file) => `${import.meta.env.BASE_URL}jewelry/${file}`;
 // sprite about this same point, swapping which way the curve falls.
 const NOSTRIL_HOOP_ANCHOR = [0.78, 0.12];
 
+// Sizes below are the pre-adjustment baseline scaled up by ~35% from the
+// original calibration, which rendered too small to see on the feed. The
+// multiplier is uniform across every entry, so the pieces keep their sizes
+// relative to one another; the resize grip still moves any of them from here.
 const JEWELRY = {
   leftNostril: [
-    { id: 'stud', label: 'Stud', src: jewelryAsset('nostril-stud.png'), widthRatio: 0.045, offset: [0.024, 0.055] },
-    { id: 'hoop', label: 'Small Hoop', src: jewelryAsset('nostril-hoop.png'), widthRatio: 0.073, offset: [0.024, 0.055], anchor: NOSTRIL_HOOP_ANCHOR },
+    { id: 'stud', label: 'Stud', src: jewelryAsset('nostril-stud.png'), widthRatio: 0.061, offset: [0.024, 0.055] },
+    { id: 'hoop', label: 'Small Hoop', src: jewelryAsset('nostril-hoop.png'), widthRatio: 0.099, offset: [0.024, 0.055], anchor: NOSTRIL_HOOP_ANCHOR },
   ],
   rightNostril: [
-    { id: 'stud', label: 'Stud', src: jewelryAsset('nostril-stud.png'), widthRatio: 0.045, offset: [-0.059, 0.066] },
-    { id: 'hoop', label: 'Small Hoop', src: jewelryAsset('nostril-hoop.png'), widthRatio: 0.073, offset: [-0.059, 0.066], anchor: NOSTRIL_HOOP_ANCHOR, mirror: true },
+    { id: 'stud', label: 'Stud', src: jewelryAsset('nostril-stud.png'), widthRatio: 0.061, offset: [-0.059, 0.066] },
+    { id: 'hoop', label: 'Small Hoop', src: jewelryAsset('nostril-hoop.png'), widthRatio: 0.099, offset: [-0.059, 0.066], anchor: NOSTRIL_HOOP_ANCHOR, mirror: true },
   ],
   septum: [
-    { id: 'ring', label: 'Ring', src: jewelryAsset('septum-ring.png'), widthRatio: 0.091 },
-    { id: 'horseshoe', label: 'Horseshoe', src: jewelryAsset('septum-horseshoe.png'), widthRatio: 0.091 },
-    { id: 'hoop', label: 'Small Hoop', src: jewelryAsset('septum-hoop.png'), widthRatio: 0.064 },
+    { id: 'ring', label: 'Ring', src: jewelryAsset('septum-ring.png'), widthRatio: 0.123 },
+    { id: 'horseshoe', label: 'Horseshoe', src: jewelryAsset('septum-horseshoe.png'), widthRatio: 0.123 },
+    { id: 'hoop', label: 'Small Hoop', src: jewelryAsset('septum-hoop.png'), widthRatio: 0.086 },
   ],
   leftEyebrow: [
-    { id: 'straight', label: 'Straight Barbell', src: jewelryAsset('barbell-straight.png'), widthRatio: 0.118, offset: [-0.071, -0.055] },
-    { id: 'curved', label: 'Curved Barbell', src: jewelryAsset('barbell-curved.png'), widthRatio: 0.118, offset: [-0.071, -0.055] },
+    { id: 'straight', label: 'Straight Barbell', src: jewelryAsset('barbell-straight.png'), widthRatio: 0.159, offset: [-0.071, -0.055] },
+    { id: 'curved', label: 'Curved Barbell', src: jewelryAsset('barbell-curved.png'), widthRatio: 0.159, offset: [-0.071, -0.055] },
   ],
   rightEyebrow: [
-    { id: 'straight', label: 'Straight Barbell', src: jewelryAsset('barbell-straight.png'), widthRatio: 0.118, offset: [0.071, -0.055] },
-    { id: 'curved', label: 'Curved Barbell', src: jewelryAsset('barbell-curved.png'), widthRatio: 0.118, offset: [0.071, -0.055] },
+    { id: 'straight', label: 'Straight Barbell', src: jewelryAsset('barbell-straight.png'), widthRatio: 0.159, offset: [0.071, -0.055] },
+    { id: 'curved', label: 'Curved Barbell', src: jewelryAsset('barbell-curved.png'), widthRatio: 0.159, offset: [0.071, -0.055] },
   ],
   lowerLip: [
-    { id: 'stud', label: 'Stud', src: jewelryAsset('lip-stud.png'), widthRatio: 0.045 },
-    { id: 'ring', label: 'Small Ring', src: jewelryAsset('lip-ring.png'), widthRatio: 0.064 },
+    { id: 'stud', label: 'Stud', src: jewelryAsset('lip-stud.png'), widthRatio: 0.061 },
+    { id: 'ring', label: 'Small Ring', src: jewelryAsset('lip-ring.png'), widthRatio: 0.086 },
   ],
 };
 

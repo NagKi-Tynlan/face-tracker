@@ -135,6 +135,11 @@ function App() {
 
   return (
     <div className="stage">
+      <header className="site-header">
+        <h1 className="wordmark">PiercedUp</h1>
+        <p className="tagline">See it before the needle.</p>
+      </header>
+
       <div className="phone">
         <div className="phone-ear">
           <span className="phone-camera" />
@@ -142,7 +147,8 @@ function App() {
         </div>
 
         <div className="screen">
-          <header className="top-bar">
+          {/* A div, not a header: the page's banner is the wordmark above. */}
+          <div className="top-bar">
             <button
               type="button"
               className={`bar-toggle ${gridOn ? 'on' : ''}`}
@@ -172,7 +178,7 @@ function App() {
               <SlidersIcon />
               <span>Adjust</span>
             </button>
-          </header>
+          </div>
 
           <div className="viewfinder">
             <FaceTracker
