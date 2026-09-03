@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; base-uri 'self'; object-src 'none'; form-action 'none'; script-src 'none'; style-src 'unsafe-inline'; img-src 'self'"
+    />
+    <title>Page not found — PiercedUp</title>
+    <meta name="robots" content="noindex" />
+    <link rel="icon" type="image/svg+xml" href="/face-tracker/favicon.svg" />
+    <style>
+      /* GitHub Pages serves this file for any unmatched path under the site, so
+         every link here is absolute — a relative one would resolve against
+         whatever bad URL the visitor landed on. */
+      :root {
+        --bar: #101010;
+        --amber: #ffcc00;
+        --idle: #8e8e93;
+        --hairline: #262626;
+        --cam-font: 'Helvetica Neue', 'HelveticaNeue', Helvetica, Arial, sans-serif;
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        min-height: 100svh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        background: #000;
+        color: #ececec;
+        font-family: var(--cam-font);
+        line-height: 1.6;
+      }
+
+      .card {
+        width: 100%;
+        max-width: 380px;
+        padding: 28px 24px 24px;
+        border: 1px solid var(--hairline);
+        border-radius: 4px;
+        background: var(--bar);
+        text-align: center;
+      }
+
+      .code {
+        margin: 0 0 14px;
+        color: var(--amber);
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+      }
+
+      h1 {
+        margin: 0 0 10px;
+        font-size: 22px;
+        font-weight: 600;
+      }
+
+      p {
+        margin: 0 0 22px;
+        color: var(--idle);
+        font-size: 14px;
+      }
+
+      .shutter {
+        width: 58px;
+        height: 58px;
+        margin: 0 auto 22px;
+        padding: 3px;
+        border: 3px solid #fff;
+        border-radius: 50%;
+      }
+
+      .shutter span {
+        display: block;
+        width: 100%;
+        height: 100%;
+        border-radius: 50%;
+        background: #fff;
+      }
+
+      .go {
+        display: inline-block;
+        padding: 9px 18px;
+        border: 1px solid var(--amber);
+        border-radius: 3px;
+        color: var(--amber);
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
+        text-decoration: none;
+      }
+
+      .go:hover, .go:focus-visible { background: var(--amber); color: #101010; }
+
+      .alt {
+        margin: 18px 0 0;
+        font-size: 12px;
+      }
+
+      .alt a { color: var(--idle); }
+    </style>
+  </head>
+  <body>
+    <main class="card">
+      <div class="shutter" aria-hidden="true"><span></span></div>
+      <p class="code">Error 404</p>
+      <h1>Nothing to see here</h1>
+      <p>That page doesn't exist. The camera is still where you left it.</p>
+      <a class="go" href="/face-tracker/">Open the camera</a>
+      <p class="alt"><a href="/face-tracker/privacy.html">Privacy &amp; FAQ</a></p>
+    </main>
+  </body>
+</html>
