@@ -278,16 +278,15 @@ body {
   border-top: 1px solid var(--line-soft);
 }
 
+/* Wraps rather than scrolls: with enough positions to outgrow one line, a
+   hidden-scrollbar row left the tabs past the right edge unreachable. Every
+   tab stays on screen instead, and the drawer grows by a row as positions are
+   added. */
 .tabs {
   display: flex;
+  flex-wrap: wrap;
   gap: 2px;
-  overflow-x: auto;
-  padding: 10px 8px 2px;
-  scrollbar-width: none;
-}
-
-.tabs::-webkit-scrollbar {
-  display: none;
+  padding: 10px 8px 4px;
 }
 
 .tab {
