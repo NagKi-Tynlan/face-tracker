@@ -1,7 +1,7 @@
 # PiercedUp
 
-Webcam piercing try-on. React 19 + Vite 8, deployed to GitHub Pages at
-<https://nagki-tynlan.github.io/face-tracker/>. Static and client-only: face
+Webcam piercing try-on. React 19 + Vite 8, deployed to GitHub Pages behind the
+custom domain <https://pierced-up.com/>. Static and client-only: face
 tracking runs in-browser via MediaPipe, and no video ever leaves the device.
 
 > **Repo settings (not code):** turn on **Settings → Pages → Enforce HTTPS** and

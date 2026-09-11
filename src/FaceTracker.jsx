@@ -32,10 +32,8 @@ const PIERCING_POINTS = {
 //   mirror          flips the sprite horizontally about its anchor, for pieces
 //                   whose left- and right-side versions are the same asset.
 
-// Vite rewrites root-absolute URLs inside index.html to carry the base path,
-// but not string literals in JS — so a bare '/jewelry/x.png' 404s once the site
-// is served from the /face-tracker/ sub-path. BASE_URL keeps these correct in
-// dev ('/') and on Pages ('/face-tracker/') alike.
+// BASE_URL is '/' in both dev and production, so this is equivalent to a bare
+// '/jewelry/x.png' — kept as a helper in case the base path ever changes again.
 const jewelryAsset = (file) => `${import.meta.env.BASE_URL}jewelry/${file}`;
 
 // nostril-hoop.png is an open ring with its post-and-ball at the top right.

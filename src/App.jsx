@@ -259,9 +259,9 @@ function App() {
             >
               <span className={`shutter-inner ${countdown !== null ? 'counting' : ''}`} />
             </button>
-            {/* BASE_URL keeps this pointing at /face-tracker/ on Pages and at /
-                in dev. privacy.html ships from public/, so it is a real
-                navigation, not a route the SPA handles. */}
+            {/* BASE_URL is '/' in both dev and production. privacy.html ships
+                from public/, so it is a real navigation, not a route the SPA
+                handles. */}
             <div className="thumb-slot thumb-slot-end">
               <a className="footer-link" href={`${import.meta.env.BASE_URL}privacy.html`}>
                 Privacy
