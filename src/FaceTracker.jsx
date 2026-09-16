@@ -47,31 +47,31 @@ const NOSTRIL_HOOP_ANCHOR = [0.78, 0.12];
 // original calibration, which rendered too small to see on the feed. The
 // multiplier is uniform across every entry, so the pieces keep their sizes
 // relative to one another; the resize grip still moves any of them from here.
+const OUFER_URLS = {
+  septum: 'https://www.ouferbodyjewelry.com/products/tribal-fake-gauge-titanium-threadless-septum-ring?ref=tcjnbdeb',
+  nose: 'https://www.ouferbodyjewelry.com/products/black-cz-push-pin-horseshoe-nose-ring?ref=tcjnbdeb',
+  eyebrow: 'https://www.ouferbodyjewelry.com/products/16g-2pcs-internally-threaded-titanium-curved-bar?ref=tcjnbdeb',
+  lip: 'https://www.ouferbodyjewelry.com/products/16g-flat-back-labret-titanium-lip-stud?ref=tcjnbdeb',
+};
+
 const JEWELRY = {
   leftNostril: [
-    { id: 'stud', label: 'Stud', src: jewelryAsset('nostril-stud.png'), widthRatio: 0.061, offset: [0.024, 0.055] },
-    { id: 'hoop', label: 'Small Hoop', src: jewelryAsset('nostril-hoop.png'), widthRatio: 0.099, offset: [0.024, 0.055], anchor: NOSTRIL_HOOP_ANCHOR },
+    { id: 'oufer', label: 'OUFER Nose Ring', src: jewelryAsset('oufer-nose.png'), widthRatio: 0.099, offset: [0.024, 0.055], anchor: NOSTRIL_HOOP_ANCHOR, affiliateUrl: OUFER_URLS.nose },
   ],
   rightNostril: [
-    { id: 'stud', label: 'Stud', src: jewelryAsset('nostril-stud.png'), widthRatio: 0.061, offset: [-0.059, 0.066] },
-    { id: 'hoop', label: 'Small Hoop', src: jewelryAsset('nostril-hoop.png'), widthRatio: 0.099, offset: [-0.059, 0.066], anchor: NOSTRIL_HOOP_ANCHOR, mirror: true },
+    { id: 'oufer', label: 'OUFER Nose Ring', src: jewelryAsset('oufer-nose.png'), widthRatio: 0.099, offset: [-0.059, 0.066], anchor: NOSTRIL_HOOP_ANCHOR, mirror: true, affiliateUrl: OUFER_URLS.nose },
   ],
   septum: [
-    { id: 'ring', label: 'Ring', src: jewelryAsset('septum-ring.png'), widthRatio: 0.123 },
-    { id: 'horseshoe', label: 'Horseshoe', src: jewelryAsset('septum-horseshoe.png'), widthRatio: 0.123 },
-    { id: 'hoop', label: 'Small Hoop', src: jewelryAsset('septum-hoop.png'), widthRatio: 0.086 },
+    { id: 'oufer', label: 'OUFER Septum Ring', src: jewelryAsset('oufer-septum.png'), widthRatio: 0.123, affiliateUrl: OUFER_URLS.septum },
   ],
   leftEyebrow: [
-    { id: 'straight', label: 'Straight Barbell', src: jewelryAsset('barbell-straight.png'), widthRatio: 0.159, offset: [-0.071, -0.055] },
-    { id: 'curved', label: 'Curved Barbell', src: jewelryAsset('barbell-curved.png'), widthRatio: 0.159, offset: [-0.071, -0.055] },
+    { id: 'oufer', label: 'OUFER Curved Barbell', src: jewelryAsset('oufer-eyebrow.png'), widthRatio: 0.159, offset: [-0.071, -0.055], affiliateUrl: OUFER_URLS.eyebrow },
   ],
   rightEyebrow: [
-    { id: 'straight', label: 'Straight Barbell', src: jewelryAsset('barbell-straight.png'), widthRatio: 0.159, offset: [0.071, -0.055] },
-    { id: 'curved', label: 'Curved Barbell', src: jewelryAsset('barbell-curved.png'), widthRatio: 0.159, offset: [0.071, -0.055] },
+    { id: 'oufer', label: 'OUFER Curved Barbell', src: jewelryAsset('oufer-eyebrow.png'), widthRatio: 0.159, offset: [0.071, -0.055], affiliateUrl: OUFER_URLS.eyebrow },
   ],
   lowerLip: [
-    { id: 'stud', label: 'Stud', src: jewelryAsset('lip-stud.png'), widthRatio: 0.061 },
-    { id: 'ring', label: 'Small Ring', src: jewelryAsset('lip-ring.png'), widthRatio: 0.086 },
+    { id: 'oufer', label: 'OUFER Lip Stud', src: jewelryAsset('oufer-lip.png'), widthRatio: 0.061, affiliateUrl: OUFER_URLS.lip },
   ],
 };
 

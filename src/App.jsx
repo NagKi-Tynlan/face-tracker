@@ -58,6 +58,7 @@ function App() {
   const hasWorn = Object.keys(activeStyles).length > 0;
   const selectedWorn =
     selectedPosition && activeStyles[selectedPosition] ? selectedPosition : null;
+  const shopStyle = selectedWorn ? jewelryFor(selectedWorn, activeStyles[selectedWorn]) : null;
 
   // Every writer goes through the functional form: a drag fires pointermove far
   // faster than React re-renders, so reading current values off the closure
@@ -138,6 +139,7 @@ function App() {
       <header className="site-header">
         <h1 className="wordmark">PiercedUp</h1>
         <p className="tagline">See it before the needle.</p>
+        <p className="disclosure">PiercedUp may earn a commission from links on this page.</p>
       </header>
 
       <div className="phone">
@@ -201,6 +203,19 @@ function App() {
             {countdown > 0 && <div className="countdown">{countdown}</div>}
             <div className={`flash ${flash ? 'visible' : ''}`} aria-hidden="true" />
           </div>
+
+          {shopStyle?.affiliateUrl && (
+            <div className="shop-bar">
+              <a
+                className="shop-button"
+                href={shopStyle.affiliateUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Shop this piece
+              </a>
+            </div>
+          )}
 
           <div className="drawer">
             <div className="tabs">
