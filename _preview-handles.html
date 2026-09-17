@@ -1,0 +1,108 @@
+<!doctype html><meta charset="utf-8"><title>Handle hints</title>
+<style>
+body{margin:0;background:#f1f0ea;font:14px/1.4 Manrope,system-ui;color:#2d232e;padding:24px}
+h2{font-family:Georgia,serif;font-weight:500;margin:0 0 14px}
+.row{display:flex;gap:26px;align-items:center;flex-wrap:wrap}
+figure{margin:0;text-align:center}
+figcaption{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:#413a41;margin-top:8px}
+canvas{border-radius:10px}
+</style>
+<h2>Adjust handles — icon hints</h2>
+<div class="row">
+  <figure><canvas id="a" width="440" height="260"></canvas><figcaption>Actual size, over feed</figcaption></figure>
+  <figure><canvas id="b" width="300" height="180"></canvas><figcaption>Glyphs magnified 4x</figcaption></figure>
+</div>
+<script>
+const HANDLE_RADIUS = 10;
+const HANDLE_CREAM = '#f1f0ea';
+const HANDLE_INK = '#2d232e';
+const HANDLE_SHADOW = 'rgba(45, 35, 46, 0.45)';
+// Two short strokes off the tip, opening backwards along `heading`.
+const strokeArrowhead = (ctx, x, y, heading, size) => {
+  const spread = 2.5;
+  ctx.beginPath();
+  ctx.moveTo(x + size * Math.cos(heading + spread), y + size * Math.sin(heading + spread));
+  ctx.lineTo(x, y);
+  ctx.lineTo(x + size * Math.cos(heading - spread), y + size * Math.sin(heading - spread));
+  ctx.stroke();
+};
+
+// A three-quarter arc with one arrowhead: the smallest shape that still reads
+// as "turn this" rather than as a decorative ring.
+const drawRotateGlyph = (ctx, x, y, size) => {
+  const radius = size * 0.58;
+  const tail = Math.PI * 0.85;
+  const tip = -Math.PI * 0.25;
+
+  ctx.beginPath();
+  ctx.arc(x, y, radius, tail, tip, true);
+  ctx.stroke();
+
+  // Sweeping with the angle decreasing puts the tangent a quarter turn behind.
+  strokeArrowhead(
+    ctx,
+    x + radius * Math.cos(tip),
+    y + radius * Math.sin(tip),
+    tip - Math.PI / 2,
+    size * 0.44,
+  );
+};
+
+// Diagonal double-arrow, laid on the same down-right axis the resize grip sits
+// on, so the icon points the way the drag goes.
+const drawResizeGlyph = (ctx, x, y, size) => {
+  const reach = size * 0.66;
+  const dx = reach * Math.SQRT1_2;
+  const dy = reach * Math.SQRT1_2;
+
+  ctx.beginPath();
+  ctx.moveTo(x - dx, y - dy);
+  ctx.lineTo(x + dx, y + dy);
+  ctx.stroke();
+
+  strokeArrowhead(ctx, x + dx, y + dy, Math.PI / 4, size * 0.44);
+  strokeArrowhead(ctx, x - dx, y - dy, Math.PI / 4 - Math.PI, size * 0.44);
+};
+const drawHandles = (ctx, piece, handles, dpr) => {
+  const orbit = piece.extent + 12 * dpr;
+  const radius = HANDLE_RADIUS * dpr;
+  ctx.save();
+  ctx.lineCap='round'; ctx.lineJoin='round';
+  ctx.shadowColor = HANDLE_SHADOW; ctx.shadowBlur = 4*dpr;
+  ctx.strokeStyle = HANDLE_CREAM; ctx.globalAlpha=0.45; ctx.lineWidth=Math.max(dpr,1);
+  ctx.beginPath(); ctx.arc(piece.x,piece.y,orbit,0,Math.PI*2); ctx.stroke(); ctx.globalAlpha=1;
+  handles.forEach(({kind,x,y})=>{
+    ctx.beginPath(); ctx.arc(x,y,radius,0,Math.PI*2);
+    ctx.fillStyle=HANDLE_CREAM; ctx.fill();
+    ctx.strokeStyle=HANDLE_INK; ctx.lineWidth=Math.max(1.25*dpr,1); ctx.stroke();
+    ctx.save(); ctx.shadowColor='transparent'; ctx.shadowBlur=0;
+    ctx.strokeStyle=HANDLE_INK; ctx.lineWidth=Math.max(1.4*dpr,1);
+    if(kind==='rotate') drawRotateGlyph(ctx,x,y,radius); else drawResizeGlyph(ctx,x,y,radius);
+    ctx.restore();
+  });
+  ctx.restore();
+};
+// Actual size, on a skin-ish ground standing in for the feed.
+const a = document.getElementById('a').getContext('2d');
+const g = a.createLinearGradient(0,0,440,260);
+g.addColorStop(0,'#c99a7d'); g.addColorStop(.55,'#8d6552'); g.addColorStop(1,'#3a2b28');
+a.fillStyle=g; a.fillRect(0,0,440,260);
+[[130,130,22],[310,130,40]].forEach(([x,y,extent])=>{
+  const piece={x,y,extent,rotation:0};
+  a.fillStyle='#d8d3cb'; a.beginPath(); a.arc(x,y,7,0,Math.PI*2); a.fill();
+  const orbit = extent + 12;
+  const handles=[{kind:'resize',angle:Math.PI/4},{kind:'rotate',angle:-Math.PI/4}]
+    .map(({kind,angle})=>({kind,x:x+orbit*Math.cos(angle),y:y+orbit*Math.sin(angle)}));
+  drawHandles(a,piece,handles,1);
+});
+// Magnified glyphs.
+const b = document.getElementById('b').getContext('2d');
+b.fillStyle='#e0ddcf'; b.fillRect(0,0,300,180);
+[['rotate',80],['resize',220]].forEach(([kind,cx])=>{
+  const R=40;
+  b.beginPath(); b.arc(cx,86,R,0,Math.PI*2);
+  b.fillStyle=HANDLE_CREAM; b.fill(); b.strokeStyle=HANDLE_INK; b.lineWidth=5; b.stroke();
+  b.lineCap='round'; b.lineJoin='round'; b.strokeStyle=HANDLE_INK; b.lineWidth=5.6;
+  if(kind==='rotate') drawRotateGlyph(b,cx,86,R); else drawResizeGlyph(b,cx,86,R);
+});
+</script>
