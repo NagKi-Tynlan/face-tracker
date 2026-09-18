@@ -43,10 +43,10 @@ const jewelryAsset = (file) => `${import.meta.env.BASE_URL}jewelry/${file}`;
 // sprite about this same point, swapping which way the curve falls.
 const NOSTRIL_HOOP_ANCHOR = [0.78, 0.12];
 
-// Sizes below are the pre-adjustment baseline scaled up by ~35% from the
-// original calibration, which rendered too small to see on the feed. The
-// multiplier is uniform across every entry, so the pieces keep their sizes
-// relative to one another; the resize grip still moves any of them from here.
+// Sizes below are the pre-adjustment baseline, re-calibrated against the live
+// feed after the previous uniform scale-up left every piece oversized. They are
+// no longer a uniform multiple of one another — each piece is sized to its own
+// artwork — and the resize grip still moves any of them from here.
 const OUFER_URLS = {
   septum: 'https://www.ouferbodyjewelry.com/products/tribal-fake-gauge-titanium-threadless-septum-ring?ref=tcjnbdeb',
   nose: 'https://www.ouferbodyjewelry.com/products/black-cz-push-pin-horseshoe-nose-ring?ref=tcjnbdeb',
@@ -56,22 +56,25 @@ const OUFER_URLS = {
 
 const JEWELRY = {
   leftNostril: [
-    { id: 'oufer', label: 'OUFER Nose Ring', src: jewelryAsset('oufer-nose.png'), widthRatio: 0.099, offset: [0.024, 0.055], anchor: NOSTRIL_HOOP_ANCHOR, affiliateUrl: OUFER_URLS.nose },
+    { id: 'oufer', label: 'OUFER Nose Ring', src: jewelryAsset('oufer-nose.png'), widthRatio: 0.045, offset: [0.012, 0.070], anchor: NOSTRIL_HOOP_ANCHOR, affiliateUrl: OUFER_URLS.nose },
   ],
   rightNostril: [
-    { id: 'oufer', label: 'OUFER Nose Ring', src: jewelryAsset('oufer-nose.png'), widthRatio: 0.099, offset: [-0.059, 0.066], anchor: NOSTRIL_HOOP_ANCHOR, mirror: true, affiliateUrl: OUFER_URLS.nose },
+    { id: 'oufer', label: 'OUFER Nose Ring', src: jewelryAsset('oufer-nose.png'), widthRatio: 0.045, offset: [-0.028, 0.078], anchor: NOSTRIL_HOOP_ANCHOR, mirror: true, affiliateUrl: OUFER_URLS.nose },
   ],
   septum: [
-    { id: 'oufer', label: 'OUFER Septum Ring', src: jewelryAsset('oufer-septum.png'), widthRatio: 0.123, affiliateUrl: OUFER_URLS.septum },
+    { id: 'oufer', label: 'OUFER Septum Ring', src: jewelryAsset('oufer-septum.png'), widthRatio: 0.09, affiliateUrl: OUFER_URLS.septum },
   ],
+  // The two eyebrow entries share one barbell PNG, so exactly one of them
+  // carries `mirror` — that flip is what makes the pair curve as mirror images
+  // rather than both leaning the same way.
   leftEyebrow: [
-    { id: 'oufer', label: 'OUFER Curved Barbell', src: jewelryAsset('oufer-eyebrow.png'), widthRatio: 0.159, offset: [-0.071, -0.055], affiliateUrl: OUFER_URLS.eyebrow },
+    { id: 'oufer', label: 'OUFER Curved Barbell', src: jewelryAsset('oufer-eyebrow.png'), widthRatio: 0.06, offset: [-0.030, -0.012], mirror: true, affiliateUrl: OUFER_URLS.eyebrow },
   ],
   rightEyebrow: [
-    { id: 'oufer', label: 'OUFER Curved Barbell', src: jewelryAsset('oufer-eyebrow.png'), widthRatio: 0.159, offset: [0.071, -0.055], affiliateUrl: OUFER_URLS.eyebrow },
+    { id: 'oufer', label: 'OUFER Curved Barbell', src: jewelryAsset('oufer-eyebrow.png'), widthRatio: 0.06, offset: [0.030, -0.012], affiliateUrl: OUFER_URLS.eyebrow },
   ],
   lowerLip: [
-    { id: 'oufer', label: 'OUFER Lip Stud', src: jewelryAsset('oufer-lip.png'), widthRatio: 0.061, affiliateUrl: OUFER_URLS.lip },
+    { id: 'oufer', label: 'OUFER Lip Stud', src: jewelryAsset('oufer-lip.png'), widthRatio: 0.035, affiliateUrl: OUFER_URLS.lip },
   ],
 };
 
@@ -308,13 +311,18 @@ const nearestPiece = (pieces, point) => {
 // they don't bury the jewelry; the hit radius is much larger so they stay
 // thumb-sized on a phone.
 const HANDLE_GAP = 12;
-const HANDLE_RADIUS = 8;
+// Wide enough to carry a legible glyph: the icons are what tell the two grips
+// apart now, and below about 10px the arrowheads collapse into a smudge.
+const HANDLE_RADIUS = 10;
 const HANDLE_HIT_RADIUS = 22;
 
-// Mirrors --amber / --bar in App.css; canvas can't read CSS custom properties.
-const HANDLE_AMBER = '#ffcc00';
-const HANDLE_DARK = '#101010';
-const HANDLE_RIM = 'rgba(0, 0, 0, 0.55)';
+// Mirrors --paper / --ink in index.css; canvas can't read CSS custom
+// properties. The cream disc keeps the grips on the boutique palette and stays
+// readable over any complexion in the feed, with an ink rim and a soft shadow
+// doing the separating where the frame behind them is light.
+const HANDLE_CREAM = '#f1f0ea';
+const HANDLE_INK = '#2d232e';
+const HANDLE_SHADOW = 'rgba(45, 35, 46, 0.45)';
 
 // Resize sits down-right of the piece and rotate up-right, both carried around
 // by the piece's own rotation so the gizmo reads as attached to it.
@@ -335,15 +343,67 @@ const pieceHandles = (piece, dpr) => {
   });
 };
 
+// Two short strokes off the tip, opening backwards along `heading`.
+const strokeArrowhead = (ctx, x, y, heading, size) => {
+  const spread = 2.5;
+  ctx.beginPath();
+  ctx.moveTo(x + size * Math.cos(heading + spread), y + size * Math.sin(heading + spread));
+  ctx.lineTo(x, y);
+  ctx.lineTo(x + size * Math.cos(heading - spread), y + size * Math.sin(heading - spread));
+  ctx.stroke();
+};
+
+// A three-quarter arc with one arrowhead: the smallest shape that still reads
+// as "turn this" rather than as a decorative ring.
+const drawRotateGlyph = (ctx, x, y, size) => {
+  const radius = size * 0.58;
+  const tail = Math.PI * 0.85;
+  const tip = -Math.PI * 0.25;
+
+  ctx.beginPath();
+  ctx.arc(x, y, radius, tail, tip, true);
+  ctx.stroke();
+
+  // Sweeping with the angle decreasing puts the tangent a quarter turn behind.
+  strokeArrowhead(
+    ctx,
+    x + radius * Math.cos(tip),
+    y + radius * Math.sin(tip),
+    tip - Math.PI / 2,
+    size * 0.44,
+  );
+};
+
+// Diagonal double-arrow, laid on the same down-right axis the resize grip sits
+// on, so the icon points the way the drag goes.
+const drawResizeGlyph = (ctx, x, y, size) => {
+  const reach = size * 0.66;
+  const dx = reach * Math.SQRT1_2;
+  const dy = reach * Math.SQRT1_2;
+
+  ctx.beginPath();
+  ctx.moveTo(x - dx, y - dy);
+  ctx.lineTo(x + dx, y + dy);
+  ctx.stroke();
+
+  strokeArrowhead(ctx, x + dx, y + dy, Math.PI / 4, size * 0.44);
+  strokeArrowhead(ctx, x - dx, y - dy, Math.PI / 4 - Math.PI, size * 0.44);
+};
+
 const drawHandles = (ctx, piece, handles, dpr) => {
   const orbit = piece.extent + HANDLE_GAP * dpr;
+  const radius = HANDLE_RADIUS * dpr;
 
   ctx.save();
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.shadowColor = HANDLE_SHADOW;
+  ctx.shadowBlur = 4 * dpr;
 
   // Faint ring frames the selection and shows what the grips are attached to,
   // without competing with the jewelry it surrounds.
-  ctx.strokeStyle = HANDLE_AMBER;
-  ctx.globalAlpha = 0.35;
+  ctx.strokeStyle = HANDLE_CREAM;
+  ctx.globalAlpha = 0.45;
   ctx.lineWidth = Math.max(dpr, 1);
   ctx.beginPath();
   ctx.arc(piece.x, piece.y, orbit, 0, Math.PI * 2);
@@ -351,16 +411,27 @@ const drawHandles = (ctx, piece, handles, dpr) => {
   ctx.globalAlpha = 1;
 
   handles.forEach(({ kind, x, y }) => {
-    // Filled vs hollow is what tells the two apart at grip size — an icon would
-    // be illegible in 8px.
-    const filled = kind === 'resize';
     ctx.beginPath();
-    ctx.arc(x, y, HANDLE_RADIUS * dpr, 0, Math.PI * 2);
-    ctx.fillStyle = filled ? HANDLE_AMBER : HANDLE_DARK;
+    ctx.arc(x, y, radius, 0, Math.PI * 2);
+    ctx.fillStyle = HANDLE_CREAM;
     ctx.fill();
-    ctx.strokeStyle = filled ? HANDLE_RIM : HANDLE_AMBER;
-    ctx.lineWidth = Math.max(1.5 * dpr, 1);
+    ctx.strokeStyle = HANDLE_INK;
+    ctx.lineWidth = Math.max(1.25 * dpr, 1);
     ctx.stroke();
+
+    // The glyph is the only thing separating the two grips, so it gets drawn
+    // flat against the disc — no shadow smearing its thin strokes.
+    ctx.save();
+    ctx.shadowColor = 'transparent';
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = HANDLE_INK;
+    ctx.lineWidth = Math.max(1.4 * dpr, 1);
+    if (kind === 'rotate') {
+      drawRotateGlyph(ctx, x, y, radius);
+    } else {
+      drawResizeGlyph(ctx, x, y, radius);
+    }
+    ctx.restore();
   });
 
   ctx.restore();

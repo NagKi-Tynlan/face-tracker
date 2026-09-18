@@ -334,6 +334,7 @@ body {
   flex-shrink: 0;
   background: none;
   border: none;
+  border-radius: 999px;
   color: var(--label);
   font-family: var(--cam-font);
   font-size: 10px;
@@ -341,12 +342,24 @@ body {
   letter-spacing: 0.14em;
   text-transform: uppercase;
   white-space: nowrap;
-  padding: 8px 10px 15px;
+  padding: 8px 12px 15px;
   cursor: pointer;
+  transition: background-color 0.16s ease, color 0.16s ease;
 }
 
-.tab.open {
+/* Hover only previews the pill, at a fraction of its weight, so it never gets
+   mistaken for the open position. */
+.tab:hover:not(.open) {
+  background: var(--line-soft);
   color: var(--label-on);
+}
+
+/* The open position takes the filled pill outright. Color and weight alone left
+   it guessable at 10px uppercase, and the tray underneath belongs to exactly
+   one tab — that ownership is worth stating loudly. */
+.tab.open {
+  background: var(--accent);
+  color: var(--paper);
   font-weight: 600;
 }
 
@@ -359,6 +372,11 @@ body {
   height: 4px;
   border-radius: 50%;
   background: var(--accent);
+}
+
+/* Inside the filled pill the accent dot would vanish into its own background. */
+.tab.open .worn-dot {
+  background: var(--paper);
 }
 
 .tray {
