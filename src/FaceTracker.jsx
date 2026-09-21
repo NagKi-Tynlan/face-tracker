@@ -1,4 +1,11 @@
-import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import {
+  forwardRef,
+  useEffect,
+  useImperativeHandle,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react';
 
 // Landmark indices taken from the canonical MediaPipe FaceMesh topology.
 // The offsetX/offsetY values below predate these indices and have NOT been
@@ -227,6 +234,12 @@ const drawJewelry = (
   // falling straight down on screen as the head rolls — which is what overhead
   // lighting would do anyway. globalAlpha multiplies the shadow too, leaving it
   // a touch under the 0.5 in SHADOW_COLOR.
+  //
+  // Measured before reaching for a cache here: at the sizes these pieces
+  // actually draw (17-43px across) the blur costs ~0.1ms per piece, so six
+  // worn pieces cost well under a millisecond a frame. Pre-blurring into
+  // scaled sprites was ~10x slower — the padded sprite is far more pixels to
+  // resample than the live blur ever touches. Leave it alone.
   ctx.shadowColor = SHADOW_COLOR;
   ctx.shadowBlur = faceWidth * SHADOW_BLUR_RATIO;
   ctx.shadowOffsetX = 0;
@@ -497,17 +510,22 @@ const FaceTracker = forwardRef(function FaceTracker(
   const [error, setError] = useState(null);
   const [dragging, setDragging] = useState(false);
 
-  useEffect(() => {
+  // All three mirrors run in layout effects, not passive ones. The draw loop
+  // reads these refs from requestAnimationFrame, and a passive effect lands
+  // after paint — so a tap could miss the frame that was already in flight and
+  // only show up on the next one. Cheap assignments, and being a frame earlier
+  // is the difference between a selection feeling immediate and feeling late.
+  useLayoutEffect(() => {
     activeStylesRef.current = activeStyles;
   }, [activeStyles]);
 
-  // Mirrors activeStyles: held in a ref so slider drags reach the running
-  // draw loop without tearing down and re-creating the FaceMesh pipeline.
-  useEffect(() => {
+  // Held in a ref so slider drags reach the running draw loop without tearing
+  // down and re-creating the FaceMesh pipeline.
+  useLayoutEffect(() => {
     adjustmentsRef.current = adjustments;
   }, [adjustments]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     selectedRef.current = selectedPosition;
   }, [selectedPosition]);
 

@@ -50,15 +50,34 @@ function App() {
   // tweaks for as long as the app is open. Absent key = config defaults.
   const [adjustments, setAdjustments] = useState({});
   const [adjustMode, setAdjustMode] = useState(false);
-  const [selectedPosition, setSelectedPosition] = useState(null);
+  // Touched positions, most recent first. A stack rather than a single value:
+  // with several pieces on, taking one off used to leave the selection pointing
+  // at an empty position, which blanked the Shop button even though other
+  // pieces were still worn. Keeping the order lets it fall back to whatever was
+  // touched before instead.
+  const [selectionOrder, setSelectionOrder] = useState([]);
+  // A press on bare canvas hides the handles without forgetting which piece the
+  // Shop button is for — the two were one flag before, so dismissing the gizmo
+  // also cleared the shop target.
+  const [handlesHidden, setHandlesHidden] = useState(false);
 
-  // Handles show on whichever piece was touched last, whether that was a tap on
-  // the canvas or a pick from the tray. A selection whose piece has since come
-  // off resolves to null, which is what hides the handles.
   const hasWorn = Object.keys(activeStyles).length > 0;
-  const selectedWorn =
-    selectedPosition && activeStyles[selectedPosition] ? selectedPosition : null;
+  // The most recently touched position that is still worn. Stale entries are
+  // skipped rather than pruned: there are only six positions, so the list stays
+  // short on its own and every write staying O(6) keeps taps cheap.
+  const selectedWorn = selectionOrder.find((key) => activeStyles[key]) ?? null;
   const shopStyle = selectedWorn ? jewelryFor(selectedWorn, activeStyles[selectedWorn]) : null;
+
+  // Moves a position to the front. Returning the identical array when it is
+  // already there matters: onPieceSelect fires on every pointerdown in Adjust
+  // mode, and a re-render per press is a re-render the draw loop competes with.
+  const promoteSelection = (positionKey) => {
+    setHandlesHidden(false);
+    setSelectionOrder((prev) => {
+      if (prev[0] === positionKey) return prev;
+      return [positionKey, ...prev.filter((key) => key !== positionKey)];
+    });
+  };
 
   // Every writer goes through the functional form: a drag fires pointermove far
   // faster than React re-renders, so reading current values off the closure
@@ -122,6 +141,8 @@ function App() {
   };
 
   const selectStyle = (positionKey, styleId) => {
+    const removing = activeStyles[positionKey] === styleId;
+
     setActiveStyles((prev) => {
       const next = { ...prev };
       if (next[positionKey] === styleId) {
@@ -131,7 +152,14 @@ function App() {
       }
       return next;
     });
-    setSelectedPosition(positionKey);
+
+    if (removing) {
+      // Taking a piece off must not hand it the selection. It used to, which is
+      // why removing one of several worn pieces blanked the Shop button.
+      setSelectionOrder((prev) => prev.filter((key) => key !== positionKey));
+    } else {
+      promoteSelection(positionKey);
+    }
   };
 
   return (
@@ -139,7 +167,10 @@ function App() {
       <header className="site-header">
         <h1 className="wordmark">PiercedUp</h1>
         <p className="tagline">See it before the needle.</p>
-        <p className="disclosure">PiercedUp may earn a commission from links on this page.</p>
+        <p className="disclosure">
+          PiercedUp uses affiliate links and earns a commission from purchases made
+          through them, at no extra cost to you.
+        </p>
       </header>
 
       <div className="phone">
@@ -188,8 +219,10 @@ function App() {
               activeStyles={activeStyles}
               adjustments={adjustments}
               adjustMode={adjustMode && hasWorn}
-              selectedPosition={adjustMode && hasWorn ? selectedWorn : null}
-              onPieceSelect={(positionKey) => setSelectedPosition(positionKey)}
+              selectedPosition={adjustMode && hasWorn && !handlesHidden ? selectedWorn : null}
+              onPieceSelect={(positionKey) =>
+                (positionKey === null ? setHandlesHidden(true) : promoteSelection(positionKey))
+              }
               onPieceAdjust={adjustPiece}
             />
             {gridOn && (
@@ -204,16 +237,29 @@ function App() {
             <div className={`flash ${flash ? 'visible' : ''}`} aria-hidden="true" />
           </div>
 
-          {shopStyle?.affiliateUrl && (
+          {/* One shop action, for the piece touched most recently. Mounted on
+              hasWorn rather than on the selection, so moving between worn
+              pieces only swaps the href and the caption — the bar itself never
+              unmounts. It used to, and every remount resized the viewfinder,
+              which reallocates both canvas backing stores mid-stream. */}
+          {hasWorn && shopStyle?.affiliateUrl && (
             <div className="shop-bar">
+              {/* Which piece "this piece" means, since several can be on. */}
+              <p className="shop-piece">{shopStyle.label}</p>
               <a
                 className="shop-button"
                 href={shopStyle.affiliateUrl}
                 target="_blank"
-                rel="noopener noreferrer"
+                rel="sponsored noopener noreferrer"
+                aria-label={`Shop the ${shopStyle.label} — affiliate link, opens in a new tab`}
               >
                 Shop this piece
               </a>
+              {/* FTC: the disclosure sits with the link itself, not only in the
+                  header and the privacy page, so it is unmissable before a click. */}
+              <p className="shop-note">
+                Affiliate link — we earn a commission, at no extra cost to you.
+              </p>
             </div>
           )}
 
